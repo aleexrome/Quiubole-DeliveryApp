@@ -432,18 +432,76 @@ MOBILE_SCHEME=quiubole
 
 ---
 
-## 9. Comandos para Desarrollo
+## 9. Configuración del Servidor y Base de Datos
+
+### PostgreSQL - Crear Base de Datos
+```bash
+# Conectar a PostgreSQL
+sudo -u postgres psql
+
+# Crear usuario y base de datos
+CREATE USER quiubole_user WITH PASSWORD 'tu_password_seguro';
+CREATE DATABASE quiubole_db OWNER quiubole_user;
+GRANT ALL PRIVILEGES ON DATABASE quiubole_db TO quiubole_user;
+\q
+```
+
+### TypeORM - Archivo de Configuración
+**Ubicación:** `backend-code/src/config/database.config.ts`
+```typescript
+// Las entidades se sincronizan automáticamente en desarrollo
+// En producción usar migraciones
+{
+  type: 'postgres',
+  host: process.env.DATABASE_HOST,
+  port: parseInt(process.env.DATABASE_PORT),
+  username: process.env.DATABASE_USER,
+  password: process.env.DATABASE_PASSWORD,
+  database: process.env.DATABASE_NAME,
+  entities: [__dirname + '/../**/*.entity{.ts,.js}'],
+  synchronize: process.env.NODE_ENV === 'development',
+}
+```
+
+### URLs de la API
+```typescript
+// Desarrollo local
+const API_URL = 'http://localhost:3001/api';
+
+// Para emulador Android
+const API_URL = 'http://10.0.2.2:3001/api';
+
+// Para dispositivo físico (usar IP de tu computadora)
+const API_URL = 'http://192.168.x.x:3001/api';
+
+// Producción (ejemplo)
+const API_URL = 'https://api.quiubole.com/api';
+```
+
+### Archivo API Service
+**Ubicación:** `mobile-code/src/services/api.ts`
+- Axios configurado con interceptors
+- Manejo automático de tokens JWT
+- Base URL configurable
+
+---
+
+## 10. Comandos para Desarrollo
 
 ```bash
 # Backend
 cd backend-code
 npm install
-npm run start:dev
+npm run start:dev     # Desarrollo con hot-reload
+npm run start:prod    # Producción
+npm run build         # Compilar a JavaScript
 
 # Mobile
 cd mobile-code
 npm install
-npx expo start
+npx expo start        # Iniciar Expo
+npx expo start --android  # Directo a Android
+npx expo start --ios      # Directo a iOS
 
 # Regenerar proyecto nativo (después de cambiar plugins)
 npx expo prebuild
@@ -455,7 +513,7 @@ eas build --platform ios
 
 ---
 
-## 10. Tareas Pendientes
+## 11. Tareas Pendientes
 
 ### 🔴 Crítico
 - [ ] Completar pantallas faltantes del cliente (Home, Cart, etc.)
@@ -474,7 +532,7 @@ eas build --platform ios
 
 ---
 
-## 11. Estructura de Commits
+## 12. Estructura de Commits
 
 Los commits siguen este patrón:
 ```
@@ -496,7 +554,7 @@ Add Firebase push notifications integration
 
 ---
 
-## 12. Guías de Configuración Adicionales
+## 13. Guías de Configuración Adicionales
 
 Ver estos archivos para configuración detallada:
 - `SETUP-FIREBASE.md` - Configuración de Firebase
@@ -506,7 +564,7 @@ Ver estos archivos para configuración detallada:
 
 ---
 
-## 13. Colores de la Marca
+## 14. Colores de la Marca
 
 ```typescript
 const COLORS = {
@@ -526,7 +584,7 @@ const COLORS = {
 
 ---
 
-## 14. Notas Importantes
+## 15. Notas Importantes
 
 1. **Sin API keys**: El código funciona en modo simulación cuando no hay API keys configuradas.
 
