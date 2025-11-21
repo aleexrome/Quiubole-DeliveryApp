@@ -1,6 +1,6 @@
 // Mock data for demo mode when backend is not available
 
-export const DEMO_MODE = true; // Set to false when backend is running
+export const DEMO_MODE = false; // Set to true for demo mode without backend
 
 export const mockCategories = [
   { id: '1', name: 'Tacos', icon: 'taco', image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=200' },
