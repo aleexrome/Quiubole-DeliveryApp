@@ -406,6 +406,50 @@ export const adminApi = {
     const response = await api.delete(`/admin/coupons/${id}`);
     return response.data;
   },
+
+  // Finanzas y Estado de Cuenta
+  getFinancialSummary: async (period: 'today' | 'week' | 'month') => {
+    const response = await api.get(`/admin/finance/summary?period=${period}`);
+    return response.data;
+  },
+
+  getTransactions: async (period: 'today' | 'week' | 'month', page: number = 1) => {
+    const response = await api.get(`/admin/finance/transactions?period=${period}&page=${page}`);
+    return response.data;
+  },
+
+  getPendingDriverSettlements: async () => {
+    const response = await api.get('/admin/finance/driver-settlements');
+    return response.data;
+  },
+
+  confirmDriverSettlement: async (driverId: string, amount: number, reference: string) => {
+    const response = await api.post(`/admin/finance/driver-settlements/${driverId}/confirm`, {
+      amount,
+      reference,
+    });
+    return response.data;
+  },
+
+  getPendingRestaurantPayouts: async () => {
+    const response = await api.get('/admin/finance/restaurant-payouts');
+    return response.data;
+  },
+
+  confirmRestaurantPayout: async (restaurantId: string, amount: number, reference: string) => {
+    const response = await api.post(`/admin/finance/restaurant-payouts/${restaurantId}/confirm`, {
+      amount,
+      reference,
+    });
+    return response.data;
+  },
+
+  exportFinancialReport: async (period: 'today' | 'week' | 'month', format: 'csv' | 'pdf') => {
+    const response = await api.get(`/admin/finance/export?period=${period}&format=${format}`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
 };
 
 // ==========================================
