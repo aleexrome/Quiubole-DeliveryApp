@@ -3,41 +3,24 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
-import * as SecureStore from 'expo-secure-store';
 
 import AppNavigator from './src/navigation/AppNavigator';
-import { useAuthStore } from './src/context/store';
 
-// Keep splash screen visible while loading
-SplashScreen.preventAutoHideAsync();
+// Prevent auto hide
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function App() {
   const [appIsReady, setAppIsReady] = useState(false);
-  const { setUser, setToken } = useAuthStore();
 
   useEffect(() => {
-    async function prepare() {
-      try {
-        // Clear any existing token on startup to avoid API verification issues
-        // This ensures fresh login each time until backend is available
-        await SecureStore.deleteItemAsync('token');
-        setToken(null);
-        setUser(null);
-      } catch (e) {
-        console.warn('Error clearing auth state:', e);
-      } finally {
-        setAppIsReady(true);
-      }
-    }
+    // Simple timeout to ensure app loads
+    const timer = setTimeout(() => {
+      setAppIsReady(true);
+      SplashScreen.hideAsync().catch(() => {});
+    }, 500);
 
-    prepare();
+    return () => clearTimeout(timer);
   }, []);
-
-  useEffect(() => {
-    if (appIsReady) {
-      SplashScreen.hideAsync();
-    }
-  }, [appIsReady]);
 
   if (!appIsReady) {
     return null;
