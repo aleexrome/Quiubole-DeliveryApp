@@ -3,13 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { View, StyleSheet } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  withSpring,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import { View, StyleSheet, Text } from 'react-native';
 
 import { colors } from '../utils/theme';
 import { useAuthStore, useCartStore } from '../context/store';
@@ -53,42 +47,27 @@ const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 const OrdersStack = createNativeStackNavigator<OrdersStackParamList>();
 const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
 
-// Animated Tab Bar Icon
-const AnimatedTabIcon = ({
+// Simple Tab Bar Icon (no animations)
+const TabIcon = ({
   name,
-  focused,
   color,
   badge,
 }: {
   name: keyof typeof Ionicons.glyphMap;
-  focused: boolean;
   color: string;
   badge?: number;
 }) => {
-  const scale = useSharedValue(1);
-
-  React.useEffect(() => {
-    scale.value = withSpring(focused ? 1.15 : 1, {
-      damping: 10,
-      stiffness: 150,
-    });
-  }, [focused]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
   return (
-    <Animated.View style={[styles.tabIconContainer, animatedStyle]}>
+    <View style={styles.tabIconContainer}>
       <Ionicons name={name} size={24} color={color} />
       {badge && badge > 0 && (
         <View style={styles.badge}>
-          <Animated.Text style={styles.badgeText}>
+          <Text style={styles.badgeText}>
             {badge > 99 ? '99+' : badge}
-          </Animated.Text>
+          </Text>
         </View>
       )}
-    </Animated.View>
+    </View>
   );
 };
 
@@ -97,7 +76,6 @@ const AuthNavigator = () => (
   <AuthStack.Navigator
     screenOptions={{
       headerShown: false,
-      animation: 'slide_from_right',
     }}
   >
     <AuthStack.Screen name="Welcome" component={WelcomeScreen} />
@@ -111,35 +89,14 @@ const HomeNavigator = () => (
   <HomeStack.Navigator
     screenOptions={{
       headerShown: false,
-      animation: 'slide_from_right',
     }}
   >
     <HomeStack.Screen name="Home" component={HomeScreen} />
-    <HomeStack.Screen
-      name="RestaurantDetails"
-      component={RestaurantDetailsScreen}
-      options={{ animation: 'slide_from_bottom' }}
-    />
-    <HomeStack.Screen
-      name="ProductDetails"
-      component={ProductDetailsScreen}
-      options={{ animation: 'slide_from_bottom' }}
-    />
-    <HomeStack.Screen
-      name="Cart"
-      component={CartScreen}
-      options={{ animation: 'slide_from_right' }}
-    />
-    <HomeStack.Screen
-      name="Checkout"
-      component={CheckoutScreen}
-      options={{ animation: 'slide_from_right' }}
-    />
-    <HomeStack.Screen
-      name="OrderTracking"
-      component={OrderTrackingScreen}
-      options={{ animation: 'fade' }}
-    />
+    <HomeStack.Screen name="RestaurantDetails" component={RestaurantDetailsScreen} />
+    <HomeStack.Screen name="ProductDetails" component={ProductDetailsScreen} />
+    <HomeStack.Screen name="Cart" component={CartScreen} />
+    <HomeStack.Screen name="Checkout" component={CheckoutScreen} />
+    <HomeStack.Screen name="OrderTracking" component={OrderTrackingScreen} />
   </HomeStack.Navigator>
 );
 
@@ -148,7 +105,6 @@ const OrdersNavigator = () => (
   <OrdersStack.Navigator
     screenOptions={{
       headerShown: false,
-      animation: 'slide_from_right',
     }}
   >
     <OrdersStack.Screen name="Orders" component={OrdersScreen} />
@@ -162,7 +118,6 @@ const ProfileNavigator = () => (
   <ProfileStack.Navigator
     screenOptions={{
       headerShown: false,
-      animation: 'slide_from_right',
     }}
   >
     <ProfileStack.Screen name="Profile" component={ProfileScreen} />
@@ -192,10 +147,9 @@ const MainNavigator = () => {
         component={HomeNavigator}
         options={{
           tabBarLabel: 'Inicio',
-          tabBarIcon: ({ focused, color }) => (
-            <AnimatedTabIcon
-              name={focused ? 'home' : 'home-outline'}
-              focused={focused}
+          tabBarIcon: ({ color }) => (
+            <TabIcon
+              name="home"
               color={color}
               badge={cartItemCount}
             />
@@ -207,12 +161,8 @@ const MainNavigator = () => {
         component={SearchScreen}
         options={{
           tabBarLabel: 'Buscar',
-          tabBarIcon: ({ focused, color }) => (
-            <AnimatedTabIcon
-              name={focused ? 'search' : 'search-outline'}
-              focused={focused}
-              color={color}
-            />
+          tabBarIcon: ({ color }) => (
+            <TabIcon name="search" color={color} />
           ),
         }}
       />
@@ -221,12 +171,8 @@ const MainNavigator = () => {
         component={OrdersNavigator}
         options={{
           tabBarLabel: 'Pedidos',
-          tabBarIcon: ({ focused, color }) => (
-            <AnimatedTabIcon
-              name={focused ? 'receipt' : 'receipt-outline'}
-              focused={focused}
-              color={color}
-            />
+          tabBarIcon: ({ color }) => (
+            <TabIcon name="receipt" color={color} />
           ),
         }}
       />
@@ -235,12 +181,8 @@ const MainNavigator = () => {
         component={ProfileNavigator}
         options={{
           tabBarLabel: 'Perfil',
-          tabBarIcon: ({ focused, color }) => (
-            <AnimatedTabIcon
-              name={focused ? 'person' : 'person-outline'}
-              focused={focused}
-              color={color}
-            />
+          tabBarIcon: ({ color }) => (
+            <TabIcon name="person" color={color} />
           ),
         }}
       />
