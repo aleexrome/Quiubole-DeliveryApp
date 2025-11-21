@@ -1,0 +1,15 @@
+// ==========================================
+// MAPS MODULE
+// ==========================================
+
+import { Module, Global } from '@nestjs/common';
+import { MapsService } from './maps.service';
+import { MapsController } from './maps.controller';
+
+@Global()
+@Module({
+  providers: [MapsService],
+  controllers: [MapsController],
+  exports: [MapsService],
+})
+export class MapsModule {}
