@@ -1,14 +1,42 @@
 // Shim for react-native-reanimated to work with Expo Go without native modules
 // This provides no-op implementations that allow the app to render without animations
-import { Animated, View, Text, Image, ScrollView, FlatList } from 'react-native';
-import React from 'react';
+import { Animated, View, Text, Image, ScrollView, FlatList, ViewProps, TextProps, ImageProps, ScrollViewProps, FlatListProps } from 'react-native';
+import React, { forwardRef } from 'react';
 
-// Create animated components using React Native's Animated API
-const AnimatedView = Animated.View;
-const AnimatedText = Animated.Text;
-const AnimatedImage = Animated.Image;
-const AnimatedScrollView = Animated.ScrollView;
-const AnimatedFlatList = Animated.FlatList;
+// Filter out reanimated-specific props that aren't supported by RN Animated components
+const filterReanimatedProps = (props: any) => {
+  const {
+    entering,
+    exiting,
+    layout,
+    animatedProps,
+    sharedTransitionTag,
+    sharedTransitionStyle,
+    ...filteredProps
+  } = props;
+  return filteredProps;
+};
+
+// Create wrapper components that filter reanimated props
+const AnimatedView = forwardRef<View, any>((props, ref) => {
+  return React.createElement(Animated.View, { ...filterReanimatedProps(props), ref });
+});
+
+const AnimatedText = forwardRef<Text, any>((props, ref) => {
+  return React.createElement(Animated.Text, { ...filterReanimatedProps(props), ref });
+});
+
+const AnimatedImage = forwardRef<Image, any>((props, ref) => {
+  return React.createElement(Animated.Image, { ...filterReanimatedProps(props), ref });
+});
+
+const AnimatedScrollView = forwardRef<ScrollView, any>((props, ref) => {
+  return React.createElement(Animated.ScrollView, { ...filterReanimatedProps(props), ref });
+});
+
+const AnimatedFlatList = forwardRef<FlatList, any>((props, ref) => {
+  return React.createElement(Animated.FlatList, { ...filterReanimatedProps(props), ref });
+});
 
 // Simple entering/exiting animations (no-op - just renders immediately)
 const createAnimation = () => {
