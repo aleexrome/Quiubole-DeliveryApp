@@ -348,14 +348,15 @@ Address {
 - [x] `RoleSelectionScreen.tsx` - Selección visual de rol
 
 ### Customer
+- [x] `HomeScreen.tsx` - Restaurantes, categorias, busqueda, banner Quiu
+- [x] `RestaurantDetailScreen.tsx` - Menu del restaurante con opciones de producto
+- [x] `CartScreen.tsx` - Carrito con cupones y resumen
 - [x] `CheckoutScreen.tsx` - Proceso de pago completo
 - [x] `OrderTrackingScreen.tsx` - Tracking con mapa
+- [x] `OrderHistoryScreen.tsx` - Historial con filtros y estados
+- [x] `ProfileScreen.tsx` - Perfil, configuracion, menu de opciones
 - [x] `ChatbotScreen.tsx` - Asistente Quiu
-- [ ] `HomeScreen.tsx` - Falta completar
-- [ ] `RestaurantDetailScreen.tsx` - Falta
-- [ ] `CartScreen.tsx` - Falta
-- [ ] `ProfileScreen.tsx` - Falta
-- [ ] `OrderHistoryScreen.tsx` - Falta
+- [x] `RateOrderScreen.tsx` - Calificar pedidos con estrellas y tags
 
 ### Restaurant
 - [x] `DashboardScreen.tsx` - Stats y pedidos pendientes
@@ -515,15 +516,17 @@ eas build --platform ios
 
 ## 11. Tareas Pendientes
 
-### 🔴 Crítico
-- [ ] Completar pantallas faltantes del cliente (Home, Cart, etc.)
-- [ ] Implementar sistema de calificaciones y reseñas
-- [ ] Crear `app.module.ts` principal que importe todos los módulos
+### ✅ Completado
+- [x] Pantallas completas del cliente (Home, Cart, RestaurantDetail, Profile, OrderHistory, RateOrder)
+- [x] Sistema de calificaciones y reseñas (backend + mobile)
+- [x] `app.module.ts` principal que importa todos los módulos
+- [x] `main.ts` entry point del servidor
 
 ### 🟡 Importante
 - [ ] Tests unitarios y de integración
 - [ ] Términos y condiciones / Política de privacidad
 - [ ] Mejorar manejo de errores en el frontend
+- [ ] Actualizar navegación para incluir nuevas pantallas
 
 ### 🟢 Nice to have
 - [ ] Modo oscuro
