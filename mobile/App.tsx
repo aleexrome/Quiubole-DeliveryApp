@@ -7,7 +7,6 @@ import * as SecureStore from 'expo-secure-store';
 
 import AppNavigator from './src/navigation/AppNavigator';
 import { useAuthStore } from './src/context/store';
-import { authApi } from './src/services/api';
 
 // Keep splash screen visible while loading
 SplashScreen.preventAutoHideAsync();
@@ -19,29 +18,13 @@ export default function App() {
   useEffect(() => {
     async function prepare() {
       try {
-        // Check for existing token
-        const token = await SecureStore.getItemAsync('token');
-
-        if (token) {
-          setToken(token);
-          try {
-            // Verify token and get user profile with timeout
-            const timeoutPromise = new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('Timeout')), 3000)
-            );
-            const profile = await Promise.race([
-              authApi.getProfile(),
-              timeoutPromise
-            ]);
-            setUser(profile as any);
-          } catch {
-            // Token invalid or timeout, clear it
-            await SecureStore.deleteItemAsync('token');
-            setToken(null);
-          }
-        }
+        // Clear any existing token on startup to avoid API verification issues
+        // This ensures fresh login each time until backend is available
+        await SecureStore.deleteItemAsync('token');
+        setToken(null);
+        setUser(null);
       } catch (e) {
-        console.warn('Error loading auth state:', e);
+        console.warn('Error clearing auth state:', e);
       } finally {
         setAppIsReady(true);
       }
