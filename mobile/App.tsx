@@ -25,11 +25,17 @@ export default function App() {
         if (token) {
           setToken(token);
           try {
-            // Verify token and get user profile
-            const profile = await authApi.getProfile();
-            setUser(profile);
+            // Verify token and get user profile with timeout
+            const timeoutPromise = new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Timeout')), 3000)
+            );
+            const profile = await Promise.race([
+              authApi.getProfile(),
+              timeoutPromise
+            ]);
+            setUser(profile as any);
           } catch {
-            // Token invalid, clear it
+            // Token invalid or timeout, clear it
             await SecureStore.deleteItemAsync('token');
             setToken(null);
           }
