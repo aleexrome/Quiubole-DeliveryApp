@@ -19,7 +19,7 @@ import Animated, {
   withSpring,
   withSequence,
   withTiming,
-} from 'react-native-reanimated';
+} from '../../utils/reanimatedShim';
 import * as Haptics from 'expo-haptics';
 
 import { colors, spacing, borderRadius, shadows, typography } from '../../utils/theme';

@@ -17,7 +17,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-} from 'react-native-reanimated';
+} from '../../utils/reanimatedShim';
 import * as Haptics from 'expo-haptics';
 import * as SecureStore from 'expo-secure-store';
 

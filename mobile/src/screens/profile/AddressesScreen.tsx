@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown } from '../../utils/reanimatedShim';
 import { colors, spacing, borderRadius, shadows, typography } from '../../utils/theme';
 
 const MOCK_ADDRESSES = [

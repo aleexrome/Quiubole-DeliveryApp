@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown } from '../../utils/reanimatedShim';
 
 import { colors, spacing, borderRadius, shadows, typography } from '../../utils/theme';
 import type { OrdersStackScreenProps } from '../../navigation/types';

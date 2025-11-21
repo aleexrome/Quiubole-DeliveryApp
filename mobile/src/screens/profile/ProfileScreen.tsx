@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown } from '../../utils/reanimatedShim';
 import * as Haptics from 'expo-haptics';
 
 import { colors, spacing, borderRadius, shadows, typography } from '../../utils/theme';
