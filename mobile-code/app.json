@@ -1,0 +1,82 @@
+{
+  "expo": {
+    "name": "Quiúbole!",
+    "slug": "quiubole",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "quiubole",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FF6B35"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.quiubole.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Necesitamos tu ubicación para mostrarte restaurantes cercanos y rastrear tu pedido.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Necesitamos tu ubicación para el seguimiento de entregas en tiempo real.",
+        "NSCameraUsageDescription": "Necesitamos acceso a la cámara para tomar fotos de productos y documentos.",
+        "NSPhotoLibraryUsageDescription": "Necesitamos acceso a tus fotos para subir imágenes de productos."
+      },
+      "config": {
+        "googleMapsApiKey": "TU_GOOGLE_MAPS_API_KEY_IOS"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FF6B35"
+      },
+      "package": "com.quiubole.app",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "TU_GOOGLE_MAPS_API_KEY_ANDROID"
+        }
+      },
+      "googleServicesFile": "./google-services.json"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-notifications",
+      "expo-location",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permite a Quiúbole acceder a tus fotos para subir imágenes de productos.",
+          "cameraPermission": "Permite a Quiúbole usar la cámara para tomar fotos."
+        }
+      ]
+    ],
+    "notification": {
+      "icon": "./assets/notification-icon.png",
+      "color": "#FF6B35",
+      "androidMode": "default",
+      "androidCollapsedTitle": "Quiúbole!"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "TU_PROJECT_ID"
+      }
+    }
+  }
+}

@@ -546,4 +546,52 @@ export const favoritesApi = {
   },
 };
 
-export default api;
+// ==========================================
+// NOTIFICATIONS API
+// ==========================================
+export const notificationsApi = {
+  registerToken: async (token: string, platform: 'ios' | 'android' | 'web') => {
+    const response = await api.post('/notifications/register-token', { token, platform });
+    return response.data;
+  },
+
+  removeToken: async (token: string) => {
+    const response = await api.delete('/notifications/remove-token', { data: { token } });
+    return response.data;
+  },
+
+  subscribeTopic: async (token: string, topic: string) => {
+    const response = await api.post('/notifications/subscribe-topic', { token, topic });
+    return response.data;
+  },
+
+  unsubscribeTopic: async (token: string, topic: string) => {
+    const response = await api.post('/notifications/unsubscribe-topic', { token, topic });
+    return response.data;
+  },
+
+  sendTest: async () => {
+    const response = await api.post('/notifications/test');
+    return response.data;
+  },
+};
+
+// ==========================================
+// EXPORT UNIFIED API OBJECT
+// ==========================================
+const apiService = {
+  auth: authApi,
+  restaurants: restaurantsApi,
+  products: productsApi,
+  orders: ordersApi,
+  driver: driverApi,
+  admin: adminApi,
+  reviews: reviewsApi,
+  addresses: addressesApi,
+  categories: categoriesApi,
+  coupons: couponsApi,
+  favorites: favoritesApi,
+  notifications: notificationsApi,
+};
+
+export default apiService;
