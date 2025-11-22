@@ -9,6 +9,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../store/authStore';
 import { UserRole } from '../types';
+import { linking } from '../config/linking';
 
 // Auth Screens
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -29,6 +30,13 @@ import OrderTrackingScreen from '../screens/customer/OrderTrackingScreen';
 import OrderHistoryScreen from '../screens/customer/OrderHistoryScreen';
 import RateOrderScreen from '../screens/customer/RateOrderScreen';
 import ChatbotScreen from '../screens/customer/ChatbotScreen';
+import FavoritesScreen from '../screens/customer/FavoritesScreen';
+import QuiuPointsScreen from '../screens/customer/QuiuPointsScreen';
+import GroupOrderScreen from '../screens/customer/GroupOrderScreen';
+import ScheduleOrderScreen from '../screens/customer/ScheduleOrderScreen';
+import SurpriseMeScreen from '../screens/customer/SurpriseMeScreen';
+import StoriesScreen from '../screens/customer/StoriesScreen';
+import LiveChatScreen from '../screens/customer/LiveChatScreen';
 
 // Restaurant Screens
 import RestaurantDashboardScreen from '../screens/restaurant/DashboardScreen';
@@ -232,7 +240,7 @@ export default function AppNavigator() {
   };
 
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!isAuthenticated ? (
           // Auth Stack
@@ -262,6 +270,13 @@ export default function AppNavigator() {
             <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} />
             <Stack.Screen name="RateOrder" component={RateOrderScreen} />
             <Stack.Screen name="Chatbot" component={ChatbotScreen} />
+            <Stack.Screen name="Favorites" component={FavoritesScreen} />
+            <Stack.Screen name="QuiuPoints" component={QuiuPointsScreen} />
+            <Stack.Screen name="GroupOrder" component={GroupOrderScreen} />
+            <Stack.Screen name="ScheduleOrder" component={ScheduleOrderScreen} />
+            <Stack.Screen name="SurpriseMe" component={SurpriseMeScreen} />
+            <Stack.Screen name="Stories" component={StoriesScreen} />
+            <Stack.Screen name="LiveChat" component={LiveChatScreen} />
 
             {/* Restaurant specific screens */}
             <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
