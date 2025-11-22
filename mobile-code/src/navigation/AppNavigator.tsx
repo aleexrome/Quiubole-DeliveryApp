@@ -26,6 +26,9 @@ import RestaurantDetailScreen from '../screens/customer/RestaurantDetailScreen';
 import CartScreen from '../screens/customer/CartScreen';
 import CheckoutScreen from '../screens/customer/CheckoutScreen';
 import OrderTrackingScreen from '../screens/customer/OrderTrackingScreen';
+import OrderHistoryScreen from '../screens/customer/OrderHistoryScreen';
+import RateOrderScreen from '../screens/customer/RateOrderScreen';
+import ChatbotScreen from '../screens/customer/ChatbotScreen';
 
 // Restaurant Screens
 import RestaurantDashboardScreen from '../screens/restaurant/DashboardScreen';
@@ -52,6 +55,10 @@ import AdminOrdersScreen from '../screens/admin/OrdersScreen';
 import AdminDriversScreen from '../screens/admin/DriversScreen';
 import AdminProductsScreen from '../screens/admin/ProductsScreen';
 import AdminSettingsScreen from '../screens/admin/SettingsScreen';
+
+// Legal Screens
+import TermsScreen from '../screens/legal/TermsScreen';
+import PrivacyScreen from '../screens/legal/PrivacyScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -252,6 +259,9 @@ export default function AppNavigator() {
             <Stack.Screen name="Cart" component={CartScreen} />
             <Stack.Screen name="Checkout" component={CheckoutScreen} />
             <Stack.Screen name="OrderTracking" component={OrderTrackingScreen} />
+            <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} />
+            <Stack.Screen name="RateOrder" component={RateOrderScreen} />
+            <Stack.Screen name="Chatbot" component={ChatbotScreen} />
 
             {/* Restaurant specific screens */}
             <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
@@ -264,6 +274,10 @@ export default function AppNavigator() {
             {/* Admin specific screens */}
             <Stack.Screen name="AdminDrivers" component={AdminDriversScreen} />
             <Stack.Screen name="AdminProducts" component={AdminProductsScreen} />
+
+            {/* Legal screens */}
+            <Stack.Screen name="Terms" component={TermsScreen} />
+            <Stack.Screen name="Privacy" component={PrivacyScreen} />
           </Stack.Group>
         )}
       </Stack.Navigator>
