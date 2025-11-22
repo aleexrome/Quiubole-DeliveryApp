@@ -55,7 +55,6 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-notifications",
       "expo-location",
       [
         "expo-image-picker",
@@ -65,12 +64,6 @@
         }
       ]
     ],
-    "notification": {
-      "icon": "./assets/notification-icon.png",
-      "color": "#FF6B35",
-      "androidMode": "default",
-      "androidCollapsedTitle": "Quiúbole!"
-    },
     "extra": {
       "eas": {
         "projectId": "TU_PROJECT_ID"
