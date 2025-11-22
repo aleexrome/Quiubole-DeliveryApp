@@ -2,7 +2,7 @@
 // PANTALLA DE LOGIN
 // ==========================================
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Animated,
+  Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,6 +28,64 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // Animacion de la moto
+  const motoPosition = useRef(new Animated.Value(0)).current;
+  const motoRotate = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Animacion ciclica de la moto
+    const animateMoto = () => {
+      Animated.loop(
+        Animated.sequence([
+          // Mover a la derecha
+          Animated.parallel([
+            Animated.timing(motoPosition, {
+              toValue: 1,
+              duration: 2000,
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true,
+            }),
+            Animated.timing(motoRotate, {
+              toValue: 0,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+          ]),
+          // Pausa
+          Animated.delay(300),
+          // Mover a la izquierda
+          Animated.parallel([
+            Animated.timing(motoPosition, {
+              toValue: 0,
+              duration: 2000,
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true,
+            }),
+            Animated.timing(motoRotate, {
+              toValue: 1,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+          ]),
+          // Pausa
+          Animated.delay(300),
+        ])
+      ).start();
+    };
+
+    animateMoto();
+  }, []);
+
+  const motoTranslateX = motoPosition.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-50, 50],
+  });
+
+  const motoScaleX = motoRotate.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, -1],
+  });
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -46,8 +106,21 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        {/* Logo */}
+        {/* Logo con moto animada */}
         <View style={styles.logoContainer}>
+          <Animated.Text
+            style={[
+              styles.motoEmoji,
+              {
+                transform: [
+                  { translateX: motoTranslateX },
+                  { scaleX: motoScaleX },
+                ],
+              },
+            ]}
+          >
+            🏍️
+          </Animated.Text>
           <Text style={styles.logo}>Quiubole!</Text>
           <Text style={styles.subtitle}>Tu delivery favorito</Text>
         </View>
@@ -153,8 +226,12 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    paddingTop: 60,
-    paddingBottom: 40,
+    paddingTop: 40,
+    paddingBottom: 30,
+  },
+  motoEmoji: {
+    fontSize: 50,
+    marginBottom: 10,
   },
   logo: {
     fontSize: 42,

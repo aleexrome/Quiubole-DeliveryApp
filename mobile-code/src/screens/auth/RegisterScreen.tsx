@@ -2,7 +2,7 @@
 // PANTALLA DE REGISTRO
 // ==========================================
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  Animated,
+  Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,6 +34,55 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState<UserRole>('customer');
+
+  // Animacion de la moto
+  const motoPosition = useRef(new Animated.Value(0)).current;
+  const motoRotate = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(motoPosition, {
+            toValue: 1,
+            duration: 2000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(motoRotate, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.delay(300),
+        Animated.parallel([
+          Animated.timing(motoPosition, {
+            toValue: 0,
+            duration: 2000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(motoRotate, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.delay(300),
+      ])
+    ).start();
+  }, []);
+
+  const motoTranslateX = motoPosition.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-50, 50],
+  });
+
+  const motoScaleX = motoRotate.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, -1],
+  });
 
   const roles: { value: UserRole; label: string; icon: string; description: string }[] = [
     { value: 'customer', label: 'Cliente', icon: 'person', description: 'Quiero pedir comida' },
@@ -78,6 +129,23 @@ export default function RegisterScreen() {
           >
             <Ionicons name="arrow-back" size={24} color="#0F172A" />
           </TouchableOpacity>
+
+          {/* Moto animada */}
+          <View style={styles.motoContainer}>
+            <Animated.Text
+              style={[
+                styles.motoEmoji,
+                {
+                  transform: [
+                    { translateX: motoTranslateX },
+                    { scaleX: motoScaleX },
+                  ],
+                },
+              ]}
+            >
+              🏍️
+            </Animated.Text>
+          </View>
 
           <Text style={styles.title}>Crear Cuenta</Text>
           <Text style={styles.subtitle}>Completa tus datos para comenzar</Text>
@@ -219,6 +287,13 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 16,
+  },
+  motoContainer: {
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  motoEmoji: {
+    fontSize: 40,
   },
   title: {
     fontSize: 28,
