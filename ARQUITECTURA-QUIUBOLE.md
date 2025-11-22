@@ -33,23 +33,29 @@ backend-code/
 │   ├── notifications/  # Firebase push
 │   ├── orders/         # Gestión de pedidos
 │   ├── payments/       # Stripe pagos
-│   └── uploads/        # Cloudinary imágenes
+│   ├── reviews/        # Calificaciones y reseñas
+│   ├── uploads/        # Cloudinary imágenes
+│   ├── app.module.ts   # Módulo principal
+│   └── main.ts         # Entry point
 ```
 
 ### Mobile (React Native + Expo)
 ```
 mobile-code/
 ├── src/
+│   ├── components/
+│   │   └── ui/         # Toast, ErrorBoundary, Loading, EmptyState
 │   ├── hooks/          # useNotifications, etc.
 │   ├── navigation/     # AppNavigator (role-based)
 │   ├── screens/
 │   │   ├── admin/      # Dashboard, Users, Finance, etc.
 │   │   ├── auth/       # Login, Register, Verify
-│   │   ├── customer/   # Home, Checkout, Tracking, Chatbot
+│   │   ├── customer/   # Home, Cart, Checkout, Tracking, Profile, etc.
 │   │   ├── driver/     # Home, ActiveDelivery, Earnings
+│   │   ├── legal/      # Terms, Privacy
 │   │   └── restaurant/ # Dashboard, Orders, Menu
 │   ├── services/       # API, chat, images, location, notifications, payments
-│   ├── store/          # Zustand (authStore)
+│   ├── store/          # Zustand (authStore, cartStore, toastStore)
 │   └── types/          # TypeScript interfaces
 ```
 
@@ -517,16 +523,18 @@ eas build --platform ios
 ## 11. Tareas Pendientes
 
 ### ✅ Completado
-- [x] Pantallas completas del cliente (Home, Cart, RestaurantDetail, Profile, OrderHistory, RateOrder)
+- [x] Pantallas completas del cliente (Home, Cart, RestaurantDetail, Profile, OrderHistory, RateOrder, Search, Orders)
 - [x] Sistema de calificaciones y reseñas (backend + mobile)
 - [x] `app.module.ts` principal que importa todos los módulos
 - [x] `main.ts` entry point del servidor
+- [x] Términos y condiciones / Política de privacidad (screens/legal/)
+- [x] Navegación actualizada con todas las pantallas
+- [x] Componentes UI: Toast, ErrorBoundary, LoadingScreen, EmptyState, NetworkError
+- [x] Store global para toasts (toastStore)
+- [x] Store del carrito (cartStore)
 
 ### 🟡 Importante
 - [ ] Tests unitarios y de integración
-- [ ] Términos y condiciones / Política de privacidad
-- [ ] Mejorar manejo de errores en el frontend
-- [ ] Actualizar navegación para incluir nuevas pantallas
 
 ### 🟢 Nice to have
 - [ ] Modo oscuro
