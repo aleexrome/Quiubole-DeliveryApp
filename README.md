@@ -147,7 +147,15 @@ nest new quiubole-backend
 - Rastrear pedido en tiempo real en mapa
 - Calificar restaurantes y repartidores
 - Historial de pedidos y reordenar
-- Cupones y promociones
+- Cupones y promociones avanzadas
+- **QuiuPoints** - Programa de lealtad (ganar/canjear puntos)
+- **Favoritos** - Guardar restaurantes en listas personalizadas
+- **Pedidos Grupales** - Ordenar con amigos y dividir cuenta
+- **Pedidos Programados** - Agendar entregas con anticipación
+- **Modo Sorpréndeme** - Selección aleatoria de restaurantes
+- **Stories** - Ver promociones y novedades de restaurantes
+- **Chat en Vivo** - Soporte con QuiuBot y agentes
+- **Deep Links** - Compartir restaurantes y promociones
 
 ### Para Repartidores:
 - Activar/desactivar disponibilidad
@@ -303,25 +311,32 @@ nest new quiubole-backend
 
 ## 🔮 Roadmap
 
-### Fase 1: MVP (Mínimo Producto Viable)
+### Fase 1: MVP (Mínimo Producto Viable) ✅
 - ✅ App de clientes básica
 - ✅ App de repartidores
 - ✅ Rastreo en tiempo real
 - ✅ Pagos con tarjeta y efectivo
+- ✅ Sistema de autenticación con roles
 
-### Fase 2: Expansión
-- Portal de negocios completo
-- Portal de administradores
-- Sistema de cupones avanzado
-- Chat en tiempo real
-- Notificaciones personalizadas
+### Fase 2: Expansión ✅
+- ✅ Portal de negocios completo
+- ✅ Portal de administradores
+- ✅ Sistema de cupones avanzado
+- ✅ Chat en tiempo real (LiveChatScreen)
+- ✅ Notificaciones push (Firebase)
+- ✅ Sistema de reseñas y calificaciones
 
-### Fase 3: Avanzado
-- Machine Learning para recomendaciones
-- Programa de lealtad
-- Subscripciones premium
-- Pedidos programados
-- Órdenes grupales
+### Fase 3: Avanzado ✅
+- ✅ Chatbot Quiu (AI Assistant)
+- ✅ Programa de lealtad QuiuPoints
+- ✅ Pedidos programados (ScheduleOrderScreen)
+- ✅ Órdenes grupales (GroupOrderScreen)
+- ✅ Sistema de favoritos con listas personalizadas
+- ✅ Stories de restaurantes (StoriesScreen)
+- ✅ Modo Sorpréndeme (SurpriseMeScreen)
+- ✅ Deep links configurados
+- ⏳ Machine Learning para recomendaciones
+- ⏳ Subscripciones premium
 
 ---
 
