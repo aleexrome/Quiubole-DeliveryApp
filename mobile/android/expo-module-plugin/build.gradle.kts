@@ -4,13 +4,9 @@ plugins {
 }
 
 repositories {
-    mavenCentral()
     google()
+    mavenCentral()
     gradlePluginPortal()
-}
-
-dependencies {
-    implementation("com.android.tools.build:gradle:8.6.1")
 }
 
 gradlePlugin {
