@@ -1,0 +1,36 @@
+﻿# Dependencies
+node_modules/
+*/node_modules/
+
+# Build outputs
+build/
+dist/
+*/build/
+*/dist/
+
+# Environment variables
+.env
+.env.local
+*.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Expo
+.expo/
+.expo-shared/
+
+# Android
+*.apk
+*.aab
+android/app/build/
+*.keystore
+
+# iOS
+ios/Pods/
+*.ipa
