@@ -35,7 +35,7 @@ import { Product } from './products/product.entity';
 import { Category } from './categories/category.entity';
 import { Order } from './orders/order.entity';
 import { OrderItem } from './orders/order-item.entity';
-import { Review } from './reviews/reviews.entity';
+import { Review } from './reviews/review.entity';
 import { Address } from './addresses/address.entity';
 import { Coupon } from './coupons/coupon.entity';
 import { Favorite } from './favorites/favorite.entity';
