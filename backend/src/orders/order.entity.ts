@@ -5,7 +5,6 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
-  OneToMany,
   JoinColumn,
 } from 'typeorm';
 import { User } from '../users/user.entity';
@@ -17,7 +16,7 @@ export class Order {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'orderNumber', unique: true })
+  @Column({ unique: true })
   orderNumber: string;
 
   @Column({
@@ -104,6 +103,9 @@ export class Order {
 
   @Column({ nullable: true })
   actualDeliveryTime: Date;
+
+  @Column({ nullable: true })
+  confirmedAt: Date;
 
   @Column({ nullable: true })
   acceptedAt: Date;

@@ -24,7 +24,7 @@ export class Product {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   price: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true, name: 'compare_price' })
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   comparePrice: number;
 
   @Column({ nullable: true })
@@ -33,16 +33,19 @@ export class Product {
   @Column({ type: 'simple-array', nullable: true })
   images: string[];
 
-  @Column({ default: true, name: 'is_available' })
+  @Column({ default: true })
   isAvailable: boolean;
 
-  @Column({ default: true, name: 'is_active' })
+  @Column({ default: true })
   isActive: boolean;
 
-  @Column({ default: 0, name: 'sort_order' })
+  @Column({ default: false })
+  isApproved: boolean;
+
+  @Column({ default: 0 })
   sortOrder: number;
 
-  @Column({ nullable: true, name: 'preparation_time' })
+  @Column({ nullable: true })
   preparationTime: number;
 
   @Column({ type: 'jsonb', nullable: true })
@@ -51,29 +54,29 @@ export class Product {
   @Column({ type: 'jsonb', nullable: true })
   options: any;
 
-  @Column({ nullable: true, name: 'restaurant_id' })
+  @Column({ nullable: true })
   restaurantId: string;
 
   @ManyToOne(() => Restaurant)
-  @JoinColumn({ name: 'restaurant_id' })
+  @JoinColumn({ name: 'restaurantId' })
   restaurant: Restaurant;
 
-  @Column({ nullable: true, name: 'category_id' })
+  @Column({ nullable: true })
   categoryId: string;
 
   @ManyToOne(() => Category, { nullable: true })
-  @JoinColumn({ name: 'category_id' })
+  @JoinColumn({ name: 'categoryId' })
   category: Category;
 
-  @Column({ default: 0, name: 'total_sold' })
+  @Column({ default: 0 })
   totalSold: number;
 
   @Column({ type: 'decimal', precision: 3, scale: 2, default: 5.0 })
   rating: number;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn()
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn()
   updatedAt: Date;
 }

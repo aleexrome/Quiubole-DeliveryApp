@@ -5,7 +5,6 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
-  OneToMany,
   JoinColumn,
 } from 'typeorm';
 import { User } from '../users/user.entity';
@@ -24,7 +23,7 @@ export class Restaurant {
   @Column({ nullable: true })
   logo: string;
 
-  @Column({ nullable: true, name: 'cover_image' })
+  @Column({ nullable: true })
   coverImage: string;
 
   @Column()
@@ -45,46 +44,49 @@ export class Restaurant {
   @Column({ type: 'decimal', precision: 3, scale: 2, default: 5.0 })
   rating: number;
 
-  @Column({ default: 0, name: 'total_reviews' })
+  @Column({ default: 0 })
   totalReviews: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0, name: 'minimum_order' })
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   minimumOrder: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0, name: 'delivery_fee' })
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   deliveryFee: number;
 
-  @Column({ default: 30, name: 'estimated_delivery_time' })
+  @Column({ default: 30 })
   estimatedDeliveryTime: number;
 
-  @Column({ default: true, name: 'is_active' })
+  @Column({ default: true })
   isActive: boolean;
 
-  @Column({ default: false, name: 'is_open' })
+  @Column({ default: false })
   isOpen: boolean;
 
-  @Column({ type: 'jsonb', nullable: true, name: 'opening_hours' })
+  @Column({ default: false })
+  isApproved: boolean;
+
+  @Column({ type: 'jsonb', nullable: true })
   openingHours: any;
 
   @Column({ type: 'simple-array', nullable: true })
   categories: string[];
 
-  @Column({ nullable: true, name: 'owner_id' })
+  @Column({ nullable: true })
   ownerId: string;
 
   @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'owner_id' })
+  @JoinColumn({ name: 'ownerId' })
   owner: User;
 
-  @Column({ type: 'decimal', precision: 5, scale: 2, default: 15, name: 'commission_rate' })
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 15 })
   commissionRate: number;
 
-  @Column({ nullable: true, name: 'stripe_account_id' })
+  @Column({ nullable: true })
   stripeAccountId: string;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn()
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn()
   updatedAt: Date;
 }

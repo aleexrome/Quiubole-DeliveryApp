@@ -40,12 +40,29 @@ export class User {
   @Column({ default: true })
   isActive: boolean;
 
+  @Column({ default: false })
+  isAvailable: boolean;
+
+  @Column({ default: false })
+  emailVerified: boolean;
+
   @Column({ nullable: true })
   stripeCustomerId: string;
+
+  @Column({ type: 'decimal', precision: 10, scale: 6, nullable: true })
+  currentLatitude: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 6, nullable: true })
+  currentLongitude: number;
 
   @CreateDateColumn()
   createdAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  // Virtual property
+  get name(): string {
+    return `${this.firstName} ${this.lastName}`;
+  }
 }
