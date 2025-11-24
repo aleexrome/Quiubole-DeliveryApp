@@ -5,7 +5,7 @@ pluginManagement {
     resolutionStrategy {
         eachPlugin {
             if (requested.id.id == 'expo-module-gradle-plugin') {
-                useModule("expo.modules:expo-autolinking-plugin")
+                useId("expo-autolinking")
             }
         }
     }
