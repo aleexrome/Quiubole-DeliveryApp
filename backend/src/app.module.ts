@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ServeStaticModule } from '@nestjs/serve-static';
-import { join } from 'path';
+// import { ServeStaticModule } from '@nestjs/serve-static';
+// import { join } from 'path';
 
 // Feature Modules
 import { AuthModule } from './auth/auth.module';
@@ -78,10 +78,10 @@ import { VerificationCode } from './auth/verification-code.entity';
       }),
       inject: [ConfigService],
     }),
-    ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'uploads'),
-      serveRoot: '/uploads',
-    }),
+    // ServeStaticModule.forRoot({
+    //   rootPath: join(__dirname, '..', 'uploads'),
+    //   serveRoot: '/uploads',
+    // }),
     // Feature modules
     AuthModule,
     UsersModule,

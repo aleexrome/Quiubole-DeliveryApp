@@ -25,10 +25,10 @@ export class PaymentsService {
     const paymentMethod = this.paymentMethodsRepository.create({
       userId,
       type: data.type,
-      last4: data.last4 || data.cardNumber?.slice(-4),
-      brand: data.brand,
-      expiryMonth: data.expiryMonth,
-      expiryYear: data.expiryYear,
+      cardLast4: data.cardLast4 || data.cardNumber?.slice(-4),
+      cardBrand: data.cardBrand,
+      cardExpMonth: data.cardExpMonth,
+      cardExpYear: data.cardExpYear,
       isDefault: data.isDefault || false,
     });
 
@@ -102,8 +102,10 @@ export class PaymentsService {
     }
 
     // In production, process refund through payment gateway
-    order.isRefunded = true;
-    order.refundedAt = new Date();
+    // Mark as cancelled with refund reason
+    order.isPaid = false;
+    order.cancelledAt = new Date();
+    order.cancellationReason = 'Refunded';
 
     await this.ordersRepository.save(order);
 

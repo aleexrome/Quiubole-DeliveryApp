@@ -60,9 +60,16 @@ export class DriversService {
 
   async updateLocation(id: string, latitude: number, longitude: number): Promise<User> {
     const driver = await this.findOne(id);
-    // Assuming we add location fields to User entity for drivers
-    // For now, we'll just return the driver
-    return driver;
+    // Update driver location
+    driver.currentLatitude = latitude;
+    driver.currentLongitude = longitude;
+    return this.usersRepository.save(driver);
+  }
+
+  async updateAvailability(id: string, isAvailable: boolean): Promise<User> {
+    const driver = await this.findOne(id);
+    driver.isAvailable = isAvailable;
+    return this.usersRepository.save(driver);
   }
 
   async getEarnings(driverId: string, startDate?: Date, endDate?: Date): Promise<any> {

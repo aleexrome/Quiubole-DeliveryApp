@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-interface Notification {
+export interface Notification {
   id: string;
   userId: string;
   title: string;

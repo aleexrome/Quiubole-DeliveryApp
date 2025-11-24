@@ -164,7 +164,7 @@ export class ReviewsService {
 
     await this.restaurantsRepository.update(restaurantId, {
       rating: parseFloat(result.avgRating) || 0,
-      reviewCount: parseInt(result.reviewCount) || 0,
+      totalReviews: parseInt(result.reviewCount) || 0,
     });
   }
 

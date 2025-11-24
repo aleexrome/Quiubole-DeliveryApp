@@ -70,7 +70,7 @@ export class AiService {
       let score = 0;
       const name = product.name.toLowerCase();
       const description = (product.description || '').toLowerCase();
-      const category = (product.category || '').toLowerCase();
+      const category = (product.category?.name || '').toLowerCase();
 
       for (const term of searchTerms) {
         if (name.includes(term)) score += 10;
