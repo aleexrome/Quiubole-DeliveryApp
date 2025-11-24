@@ -1,5 +1,6 @@
 package expo.modules.plugin
 
+import com.android.build.gradle.LibraryExtension
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 
@@ -11,24 +12,21 @@ class ExpoModuleGradlePlugin : Plugin<Project> {
         project.plugins.apply("com.android.library")
 
         project.afterEvaluate {
-            project.extensions.findByName("android")?.let { android ->
-                val androidExt = android as com.android.build.gradle.LibraryExtension
-
+            val android = project.extensions.findByType(LibraryExtension::class.java)
+            if (android != null) {
                 // Get values from root project or use defaults
-                val compileSdk = project.rootProject.findProperty("compileSdkVersion")?.toString()?.toIntOrNull() ?: 35
-                val minSdk = project.rootProject.findProperty("minSdkVersion")?.toString()?.toIntOrNull() ?: 24
-                val targetSdk = project.rootProject.findProperty("targetSdkVersion")?.toString()?.toIntOrNull() ?: 35
+                val compileSdkVal = project.rootProject.findProperty("compileSdkVersion")?.toString()?.toIntOrNull() ?: 35
+                val minSdkVal = project.rootProject.findProperty("minSdkVersion")?.toString()?.toIntOrNull() ?: 24
+                val targetSdkVal = project.rootProject.findProperty("targetSdkVersion")?.toString()?.toIntOrNull() ?: 35
 
-                if (androidExt.compileSdk == null) {
-                    androidExt.compileSdk = compileSdk
+                if (android.compileSdk == null) {
+                    android.compileSdk = compileSdkVal
                 }
-                androidExt.defaultConfig {
-                    if (it.minSdk == null) {
-                        it.minSdk = minSdk
-                    }
-                    if (it.targetSdk == null) {
-                        it.targetSdk = targetSdk
-                    }
+                if (android.defaultConfig.minSdk == null) {
+                    android.defaultConfig.minSdk = minSdkVal
+                }
+                if (android.defaultConfig.targetSdk == null) {
+                    android.defaultConfig.targetSdk = targetSdkVal
                 }
             }
         }

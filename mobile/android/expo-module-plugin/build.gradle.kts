@@ -9,6 +9,10 @@ repositories {
     gradlePluginPortal()
 }
 
+dependencies {
+    implementation("com.android.tools.build:gradle:8.6.1")
+}
+
 gradlePlugin {
     plugins {
         create("expoModuleGradlePlugin") {
