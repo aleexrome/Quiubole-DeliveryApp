@@ -28,7 +28,7 @@
       "distribution": "internal",
       "channel": "preview",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.devolon.mx/api"
+        "EXPO_PUBLIC_API_URL": "https://quiubole-deliveryapp-production.up.railway.app/api"
       },
       "android": {
         "buildType": "apk"
@@ -40,7 +40,7 @@
     "production": {
       "channel": "production",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.devolon.mx/api"
+        "EXPO_PUBLIC_API_URL": "https://quiubole-deliveryapp-production.up.railway.app/api"
       },
       "android": {
         "buildType": "app-bundle"
