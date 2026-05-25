@@ -71,4 +71,23 @@ export class DriversController {
   async getStats(@Request() req) {
     return this.driverBalanceService.getDriverStats(req.user.id);
   }
+
+  /**
+   * Actualiza info del vehículo del driver. Esta info se muestra al
+   * cliente cuando se asigna driver al pedido (seguridad: el cliente
+   * sabe qué placas/modelo buscar).
+   */
+  @Put('vehicle')
+  async updateVehicle(
+    @Request() req,
+    @Body()
+    body: {
+      vehicleType?: string;
+      vehiclePlate?: string;
+      vehicleModel?: string;
+      vehicleColor?: string;
+    },
+  ) {
+    return this.driversService.updateVehicle(req.user.id, body);
+  }
 }

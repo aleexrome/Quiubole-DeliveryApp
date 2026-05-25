@@ -27,8 +27,18 @@ export class AdminController {
   }
 
   @Get('users')
-  async getUsers(@Query('page') page: number = 1, @Query('limit') limit: number = 10) {
-    return this.adminService.getUsers(page, limit);
+  async getUsers(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 100,
+    @Query('role') role?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.adminService.getUsers(page, limit, role, search);
+  }
+
+  @Get('users-stats')
+  async getUsersStats() {
+    return this.adminService.getUserStats();
   }
 
   @Get('users/:id')
@@ -46,9 +56,53 @@ export class AdminController {
     return this.adminService.deleteUser(id);
   }
 
+  // ============ APROBACIÓN DE USUARIOS ============
+  // Aplica a roles driver/restaurant/editor que requieren revisión.
+  // customer/admin se auto-aprueban en el registro.
+
+  @Post('users/:id/approve')
+  async approveUser(@Param('id') id: string) {
+    return this.adminService.approveUser(id);
+  }
+
+  @Post('users/:id/reject')
+  async rejectUser(@Param('id') id: string, @Body() body: { reason?: string }) {
+    return this.adminService.rejectUser(id, body?.reason);
+  }
+
+  // ============ APROBACIÓN DE PRODUCTOS ============
+
+  @Post('products/:id/approve')
+  async approveProduct(@Param('id') id: string) {
+    return this.adminService.approveProduct(id);
+  }
+
+  @Post('products/:id/reject')
+  async rejectProduct(@Param('id') id: string, @Body() body: { reason?: string }) {
+    return this.adminService.rejectProduct(id, body?.reason);
+  }
+
+  @Get('products')
+  async getProducts(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 100,
+    @Query('status') status?: 'pending' | 'approved' | 'all',
+  ) {
+    return this.adminService.getProducts(page, limit, status);
+  }
+
+  @Get('products-stats')
+  async getProductsStats() {
+    return this.adminService.getProductsStats();
+  }
+
   @Get('restaurants')
-  async getRestaurants(@Query('page') page: number = 1) {
-    return this.adminService.getRestaurants(page);
+  async getRestaurants(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 100,
+    @Query('status') status?: 'pending' | 'approved' | 'all',
+  ) {
+    return this.adminService.getRestaurants(page, limit, status);
   }
 
   @Put('restaurants/:id/approve')
@@ -56,13 +110,42 @@ export class AdminController {
     return this.adminService.approveRestaurant(id);
   }
 
+  // Alias POST para el front que históricamente llama POST en vez de PUT.
+  @Post('restaurants/:id/approve')
+  async approveRestaurantPost(@Param('id') id: string) {
+    return this.adminService.approveRestaurant(id);
+  }
+
   @Get('orders')
-  async getOrders(@Query('page') page: number = 1) {
-    return this.adminService.getOrders(page);
+  async getOrders(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 100,
+    @Query('status') status?: string,
+  ) {
+    return this.adminService.getOrders(page, limit, status);
+  }
+
+  @Get('orders-stats')
+  async getOrdersStats() {
+    return this.adminService.getOrdersStats();
+  }
+
+  @Get('restaurants-stats')
+  async getRestaurantsStats() {
+    return this.adminService.getRestaurantsStats();
   }
 
   @Get('drivers')
-  async getDrivers(@Query('page') page: number = 1) {
-    return this.adminService.getDrivers(page);
+  async getDrivers(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 100,
+    @Query('status') status?: 'all' | 'active' | 'inactive' | 'pending',
+  ) {
+    return this.adminService.getDrivers(page, limit, status);
+  }
+
+  @Get('drivers-stats')
+  async getDriversStats() {
+    return this.adminService.getDriversStats();
   }
 }

@@ -3,7 +3,14 @@
 // ==========================================
 
 // Roles de usuario
-export type UserRole = 'customer' | 'restaurant' | 'driver' | 'admin';
+export type UserRole =
+  | 'customer'
+  | 'client' // alias backend (default al registrarse)
+  | 'restaurant'
+  | 'merchant' // alias backend (legacy)
+  | 'driver'
+  | 'editor' // staff de Devolón que edita menús/fotos/precios
+  | 'admin';
 
 // Estado del usuario (para repartidores)
 export type DriverStatus = 'offline' | 'online' | 'busy';
@@ -26,10 +33,18 @@ export interface User {
   email: string;
   phone: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   role: UserRole;
   avatar?: string;
   emailVerified: boolean;
   phoneVerified: boolean;
+  // Aprobación por admin. Aplica a driver/restaurant/editor. customer y
+  // admin se auto-aprueban en el registro. Mientras false, el AppNavigator
+  // redirige al user a la pantalla "Cuenta en revisión".
+  isApproved?: boolean;
+  isActive?: boolean;
+  rejectionReason?: string | null;
   createdAt: Date;
 }
 

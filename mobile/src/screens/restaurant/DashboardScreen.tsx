@@ -1,5 +1,6 @@
 // ==========================================
-// DASHBOARD DEL RESTAURANTE
+// DEVOLÓN — Restaurant Dashboard
+// Hero del negocio: estado, ventas del día, pedidos pendientes y accesos.
 // ==========================================
 
 import React, { useState, useEffect } from 'react';
@@ -11,17 +12,30 @@ import {
   TouchableOpacity,
   Switch,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { restaurantsApi, ordersApi } from '../../services/api';
 import { Order, Restaurant } from '../../types';
+import { Card, Button, Section, EmptyState } from '../../components/ui';
+import {
+  colors,
+  s,
+  radius,
+  fontSize,
+  fontWeight,
+  tracking,
+  shadows,
+} from '../../theme';
 
 export default function RestaurantDashboardScreen() {
   const navigation = useNavigation<any>();
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
-  const [isActive, setIsActive] = useState(false);
+  // `isOpen` = abierto/cerrado temporal (toggle del dueño). El campo
+  // que solo admin maneja (suspensión de cuenta) es distinto.
+  const [isOpen, setIsOpen] = useState(false);
   const [pendingOrders, setPendingOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState({
     todayOrders: 0,
@@ -43,7 +57,7 @@ export default function RestaurantDashboardScreen() {
         restaurantsApi.getStats('day'),
       ]);
       setRestaurant(restaurantData);
-      setIsActive(restaurantData.isActive);
+      setIsOpen(!!restaurantData?.isOpen);
       setPendingOrders(ordersData);
       setStats(statsData);
     } catch (error) {
@@ -58,162 +72,353 @@ export default function RestaurantDashboardScreen() {
   };
 
   const toggleActive = async () => {
+    // Optimistic update: toggle el state local primero para que el UI
+    // responda inmediato. Si el backend falla, revertimos y mostramos
+    // alerta — antes el catch silencioso causaba que el switch "saltara"
+    // de vuelta sin que el user supiera por qué.
+    const next = !isOpen;
+    setIsOpen(next);
     try {
-      await restaurantsApi.updateAvailability(!isActive);
-      setIsActive(!isActive);
-    } catch (error) {
-      console.error('Error toggling availability:', error);
+      await restaurantsApi.updateAvailability(next);
+    } catch (error: any) {
+      setIsOpen(!next); // revert
+      Alert.alert(
+        'No se pudo actualizar',
+        error?.response?.data?.message ||
+          'Tu negocio no se pudo abrir/cerrar. Intenta de nuevo.',
+      );
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return `$${amount.toFixed(2)}`;
+  const formatCurrency = (amount: number | string | undefined | null) => {
+    const n = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return `$${(n ?? 0).toFixed(2)}`;
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: s['4xl'] }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
         }
       >
-        {/* Header */}
+        {/* ============ HEADER ============ */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Hola,</Text>
-            <Text style={styles.restaurantName}>{restaurant?.name || 'Mi Negocio'}</Text>
+          <View style={styles.headerLeft}>
+            <Text style={styles.eyebrow}>DEVOLÓN · NEGOCIO</Text>
+            <Text style={styles.greeting} numberOfLines={1}>
+              {restaurant?.name || 'Mi Negocio'}
+            </Text>
+            <View style={styles.headerStatusRow}>
+              <View
+                style={[
+                  styles.headerStatusDot,
+                  { backgroundColor: isOpen ? colors.success : colors.textFaint },
+                ]}
+              />
+              <Text style={styles.headerStatusText}>
+                {isOpen ? 'En línea' : 'Cerrado'}
+              </Text>
+            </View>
           </View>
-          <TouchableOpacity style={styles.notificationBtn}>
-            <Ionicons name="notifications-outline" size={24} color="#0F172A" />
+
+          <TouchableOpacity
+            style={styles.notificationBtn}
+            onPress={() => navigation.navigate('Orders')}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="notifications-outline" size={20} color={colors.text} />
             {pendingOrders.length > 0 && (
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>{pendingOrders.length}</Text>
+                <Text style={styles.badgeText}>
+                  {pendingOrders.length > 9 ? '9+' : pendingOrders.length}
+                </Text>
               </View>
             )}
           </TouchableOpacity>
         </View>
 
-        {/* Status Toggle */}
-        <View style={styles.statusCard}>
-          <View style={styles.statusLeft}>
-            <View style={[styles.statusDot, isActive && styles.statusDotActive]} />
-            <View>
-              <Text style={styles.statusTitle}>
-                {isActive ? 'Recibiendo Pedidos' : 'Negocio Cerrado'}
-              </Text>
-              <Text style={styles.statusSubtitle}>
-                {isActive ? 'Los clientes pueden ordenar' : 'No recibiras pedidos'}
-              </Text>
-            </View>
-          </View>
-          <Switch
-            value={isActive}
-            onValueChange={toggleActive}
-            trackColor={{ false: '#E5E5E5', true: '#FF6B35' }}
-            thumbColor="#fff"
-          />
-        </View>
-
-        {/* Stats Grid */}
-        <View style={styles.statsGrid}>
-          <View style={styles.statCard}>
-            <Ionicons name="receipt" size={24} color="#FF6B35" />
-            <Text style={styles.statValue}>{stats.todayOrders}</Text>
-            <Text style={styles.statLabel}>Pedidos Hoy</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons name="cash" size={24} color="#22C55E" />
-            <Text style={styles.statValue}>{formatCurrency(stats.todaySales)}</Text>
-            <Text style={styles.statLabel}>Ventas Hoy</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons name="time" size={24} color="#EAB308" />
-            <Text style={styles.statValue}>{stats.pendingOrders}</Text>
-            <Text style={styles.statLabel}>Por Confirmar</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons name="flame" size={24} color="#EC4899" />
-            <Text style={styles.statValue}>{stats.preparingOrders}</Text>
-            <Text style={styles.statLabel}>Preparando</Text>
-          </View>
-        </View>
-
-        {/* Pending Orders */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Pedidos Pendientes</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Orders')}>
-              <Text style={styles.seeAll}>Ver todos</Text>
-            </TouchableOpacity>
-          </View>
-
-          {pendingOrders.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="checkmark-circle" size={48} color="#22C55E" />
-              <Text style={styles.emptyText}>No hay pedidos pendientes</Text>
-            </View>
-          ) : (
-            pendingOrders.slice(0, 3).map((order) => (
-              <TouchableOpacity
-                key={order.id}
-                style={styles.orderCard}
-                onPress={() => navigation.navigate('OrderDetail', { orderId: order.id })}
+        <View style={styles.body}>
+          {/* ============ STATUS CARD ============ */}
+          <Card variant="glass" padding={s.lg} borderRadius={radius.xl} style={styles.statusCard}>
+            <View style={styles.statusLeft}>
+              <View
+                style={[
+                  styles.statusHalo,
+                  {
+                    backgroundColor: isOpen
+                      ? 'rgba(31,174,111,0.12)'
+                      : 'rgba(255,255,255,0.04)',
+                    borderColor: isOpen
+                      ? 'rgba(31,174,111,0.32)'
+                      : colors.border,
+                  },
+                ]}
               >
-                <View style={styles.orderHeader}>
-                  <Text style={styles.orderNumber}>#{order.orderNumber}</Text>
-                  <View style={styles.orderBadge}>
-                    <Text style={styles.orderBadgeText}>NUEVO</Text>
-                  </View>
-                </View>
-                <Text style={styles.orderCustomer}>{order.customer.name}</Text>
-                <Text style={styles.orderItems}>
-                  {order.items.length} productos - {formatCurrency(order.total)}
+                <Ionicons
+                  name={isOpen ? 'flash' : 'moon-outline'}
+                  size={18}
+                  color={isOpen ? colors.success : colors.textMuted}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.statusTitle}>
+                  {isOpen ? 'Recibiendo pedidos' : 'Negocio cerrado'}
                 </Text>
-                <View style={styles.orderActions}>
-                  <TouchableOpacity
-                    style={styles.rejectBtn}
-                    onPress={() => {/* Rechazar */}}
-                  >
-                    <Text style={styles.rejectBtnText}>Rechazar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.acceptBtn}
-                    onPress={() => {/* Aceptar */}}
-                  >
-                    <Text style={styles.acceptBtnText}>Aceptar</Text>
-                  </TouchableOpacity>
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
+                <Text style={styles.statusSubtitle}>
+                  {isOpen
+                    ? 'Los clientes pueden ordenar.'
+                    : 'No recibirás pedidos nuevos.'}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={isOpen}
+              onValueChange={toggleActive}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.text}
+            />
+          </Card>
 
-        {/* Quick Actions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Acciones Rapidas</Text>
-          <View style={styles.actionsGrid}>
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => navigation.navigate('Menu')}
+          {/* ============ HERO METRIC ============ */}
+          <Card
+            variant="raised"
+            padding={s.xl}
+            borderRadius={radius['2xl']}
+            style={styles.heroCard}
+          >
+            <Text style={styles.heroEyebrow}>VENTAS HOY</Text>
+            <Text style={styles.heroValue}>{formatCurrency(stats.todaySales)}</Text>
+            <View style={styles.heroMetaRow}>
+              <View style={styles.heroMeta}>
+                <Ionicons name="receipt-outline" size={13} color={colors.textMuted} />
+                <Text style={styles.heroMetaText}>
+                  {stats.todayOrders} pedido{stats.todayOrders === 1 ? '' : 's'}
+                </Text>
+              </View>
+              <View style={styles.heroMeta}>
+                <Ionicons name="star" size={13} color={colors.primary} />
+                <Text style={styles.heroMetaText}>
+                  {(Number(restaurant?.rating) || 0).toFixed(1)} ·{' '}
+                  {restaurant?.totalReviews || 0} reseñas
+                </Text>
+              </View>
+            </View>
+          </Card>
+
+          {/* ============ STATS GRID — clickeables, llevan a Pedidos ============ */}
+          <View style={styles.statsGrid}>
+            <Card
+              variant="glass"
+              padding={s.md}
+              borderRadius={radius.xl}
+              onPress={() => navigation.navigate('Orders')}
+              style={styles.statCard}
             >
-              <Ionicons name="restaurant" size={28} color="#FF6B35" />
-              <Text style={styles.actionText}>Gestionar Menu</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => navigation.navigate('Stats')}
+              <View style={[styles.statIcon, styles.statIconPrimary]}>
+                <Ionicons name="time-outline" size={16} color={colors.primary} />
+              </View>
+              <Text style={styles.statValue}>{stats.pendingOrders ?? 0}</Text>
+              <Text style={styles.statLabel}>POR CONFIRMAR</Text>
+            </Card>
+            <Card
+              variant="glass"
+              padding={s.md}
+              borderRadius={radius.xl}
+              onPress={() => navigation.navigate('Orders')}
+              style={styles.statCard}
             >
-              <Ionicons name="stats-chart" size={28} color="#FF6B35" />
-              <Text style={styles.actionText}>Ver Estadisticas</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => navigation.navigate('Profile')}
-            >
-              <Ionicons name="settings" size={28} color="#FF6B35" />
-              <Text style={styles.actionText}>Configuracion</Text>
-            </TouchableOpacity>
+              <View style={[styles.statIcon, styles.statIconInfo]}>
+                <Ionicons name="flame-outline" size={16} color={colors.info} />
+              </View>
+              <Text style={styles.statValue}>{stats.preparingOrders ?? 0}</Text>
+              <Text style={styles.statLabel}>PREPARANDO</Text>
+            </Card>
           </View>
+
+          {/* ============ PENDING ORDERS ============ */}
+          <Section
+            title="Pedidos pendientes"
+            eyebrow="EN VIVO"
+            actionLabel={pendingOrders.length > 0 ? 'Ver todos →' : undefined}
+            onActionPress={() => navigation.navigate('Orders')}
+            spacing={s.xl}
+          >
+            {pendingOrders.length === 0 ? (
+              <Card variant="glass" padding={s.xl} borderRadius={radius.xl} style={styles.allClearCard}>
+                <View style={styles.allClearHalo}>
+                  <Ionicons name="checkmark-done" size={22} color={colors.success} />
+                </View>
+                <Text style={styles.allClearTitle}>Todo al día</Text>
+                <Text style={styles.allClearSubtitle}>
+                  No hay pedidos pendientes por confirmar.
+                </Text>
+              </Card>
+            ) : (
+              pendingOrders.slice(0, 3).map((order) => {
+                const customerName =
+                  (order as any).customer?.name ||
+                  [
+                    (order as any).customer?.firstName,
+                    (order as any).customer?.lastName,
+                  ]
+                    .filter(Boolean)
+                    .join(' ') ||
+                  'Cliente';
+                const itemCount = order.items?.length ?? 0;
+
+                const handleAccept = async () => {
+                  try {
+                    await ordersApi.acceptOrder(order.id);
+                    await loadData();
+                  } catch (e: any) {
+                    Alert.alert(
+                      'No se pudo aceptar',
+                      e?.response?.data?.message || 'Intenta de nuevo.',
+                    );
+                  }
+                };
+
+                const handleReject = () => {
+                  Alert.alert(
+                    'Rechazar pedido',
+                    `¿Rechazar #${order.orderNumber}? El cliente recibirá una notificación.`,
+                    [
+                      { text: 'Cancelar', style: 'cancel' },
+                      {
+                        text: 'Rechazar',
+                        style: 'destructive',
+                        onPress: async () => {
+                          try {
+                            await ordersApi.rejectOrder(
+                              order.id,
+                              'Rechazado por el restaurante',
+                            );
+                            await loadData();
+                          } catch (e: any) {
+                            Alert.alert(
+                              'No se pudo rechazar',
+                              e?.response?.data?.message || 'Intenta de nuevo.',
+                            );
+                          }
+                        },
+                      },
+                    ],
+                  );
+                };
+
+                return (
+                  <Card
+                    key={order.id}
+                    variant="glass"
+                    padding={s.lg}
+                    borderRadius={radius.xl}
+                    onPress={() =>
+                      navigation.navigate('OrderDetail', { orderId: order.id })
+                    }
+                    style={styles.orderCard}
+                  >
+                    <View style={styles.orderHeader}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.orderNumber}>#{order.orderNumber}</Text>
+                        <Text style={styles.orderCustomer} numberOfLines={1}>
+                          {customerName}
+                        </Text>
+                      </View>
+                      <View style={styles.newBadge}>
+                        <View style={styles.newDot} />
+                        <Text style={styles.newBadgeText}>NUEVO</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.orderMetaRow}>
+                      <View style={styles.orderMetaPill}>
+                        <Ionicons
+                          name="cube-outline"
+                          size={11}
+                          color={colors.textMuted}
+                        />
+                        <Text style={styles.orderMetaText}>
+                          {itemCount} producto{itemCount === 1 ? '' : 's'}
+                        </Text>
+                      </View>
+                      <Text style={styles.orderTotal}>
+                        {formatCurrency(order.total)}
+                      </Text>
+                    </View>
+
+                    <View style={styles.orderActions}>
+                      <View style={styles.orderActionItem}>
+                        <Button
+                          label="Rechazar"
+                          variant="secondary"
+                          size="md"
+                          onPress={handleReject}
+                        />
+                      </View>
+                      <View style={styles.orderActionItem}>
+                        <Button
+                          label="Aceptar"
+                          variant="primary"
+                          size="md"
+                          onPress={handleAccept}
+                        />
+                      </View>
+                    </View>
+                  </Card>
+                );
+              })
+            )}
+          </Section>
+
+          {/* ============ QUICK ACTIONS ============ */}
+          <Section title="Accesos rápidos" eyebrow="HERRAMIENTAS" spacing={s.lg}>
+            <View style={styles.actionsGrid}>
+              <Card
+                variant="glass"
+                padding={s.md}
+                borderRadius={radius.xl}
+                onPress={() => navigation.navigate('Menu')}
+                style={styles.actionCard}
+              >
+                <View style={styles.actionIcon}>
+                  <Ionicons name="restaurant-outline" size={20} color={colors.primary} />
+                </View>
+                <Text style={styles.actionText}>Menú</Text>
+              </Card>
+              <Card
+                variant="glass"
+                padding={s.md}
+                borderRadius={radius.xl}
+                onPress={() => navigation.navigate('Stats')}
+                style={styles.actionCard}
+              >
+                <View style={styles.actionIcon}>
+                  <Ionicons name="stats-chart-outline" size={20} color={colors.primary} />
+                </View>
+                <Text style={styles.actionText}>Estadísticas</Text>
+              </Card>
+              <Card
+                variant="glass"
+                padding={s.md}
+                borderRadius={radius.xl}
+                onPress={() => navigation.navigate('Profile')}
+                style={styles.actionCard}
+              >
+                <View style={styles.actionIcon}>
+                  <Ionicons name="settings-outline" size={20} color={colors.primary} />
+                </View>
+                <Text style={styles.actionText}>Configuración</Text>
+              </Card>
+            </View>
+          </Section>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -221,219 +426,324 @@ export default function RestaurantDashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
+  container: { flex: 1, backgroundColor: colors.bg },
+
+  // ============ HEADER ============
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
+    paddingHorizontal: s.xl,
+    paddingTop: s.sm,
+    paddingBottom: s.md,
+  },
+  headerLeft: { flex: 1 },
+  eyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
   },
   greeting: {
-    fontSize: 14,
-    color: '#666',
+    color: colors.text,
+    fontSize: fontSize['3xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.6,
+    marginTop: 2,
   },
-  restaurantName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0F172A',
+  headerStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  headerStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+  },
+  headerStatusText: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.3,
   },
   notificationBtn: {
-    position: 'relative',
+    width: 42,
+    height: 42,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   badge: {
     position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: '#FF6B35',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    top: -2,
+    right: -2,
+    backgroundColor: colors.primary,
+    borderRadius: radius.pill,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
   badgeText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
+    color: colors.onPrimary,
+    fontSize: 10,
+    fontWeight: fontWeight.black,
   },
+
+  // ============ BODY ============
+  body: {
+    paddingHorizontal: s.xl,
+  },
+
+  // ============ STATUS CARD ============
   statusCard: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    justifyContent: 'space-between',
+    gap: s.md,
+    marginBottom: s.md,
   },
   statusLeft: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: s.sm,
   },
-  statusDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#E5E5E5',
-    marginRight: 12,
-  },
-  statusDotActive: {
-    backgroundColor: '#22C55E',
+  statusHalo: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statusTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0F172A',
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
   },
   statusSubtitle: {
-    fontSize: 12,
-    color: '#666',
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
     marginTop: 2,
   },
+
+  // ============ HERO METRIC ============
+  heroCard: {
+    marginBottom: s.md,
+    ...shadows.sm,
+  },
+  heroEyebrow: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+  },
+  heroValue: {
+    color: colors.primary,
+    fontSize: fontSize['4xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -1,
+    marginTop: 4,
+  },
+  heroMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s.md,
+    marginTop: s.sm,
+    flexWrap: 'wrap',
+  },
+  heroMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  heroMetaText: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+  },
+
+  // ============ STATS GRID ============
   statsGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 12,
-    gap: 8,
+    gap: s.sm,
+    marginBottom: s.xl,
   },
   statCard: {
     flex: 1,
-    minWidth: '45%',
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
+  },
+  statIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.md,
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  statIconPrimary: {
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    borderColor: 'rgba(255,194,14,0.25)',
+  },
+  statIconInfo: {
+    backgroundColor: 'rgba(46,144,250,0.12)',
+    borderColor: 'rgba(46,144,250,0.32)',
   },
   statValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0F172A',
-    marginTop: 8,
+    color: colors.primary,
+    fontSize: fontSize['3xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.6,
+    marginTop: s.sm,
   },
   statLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
+    marginTop: 2,
   },
-  section: {
-    padding: 16,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#0F172A',
-  },
-  seeAll: {
-    color: '#FF6B35',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  emptyState: {
-    backgroundColor: '#fff',
-    padding: 32,
-    borderRadius: 12,
+
+  // ============ ALL CLEAR ============
+  allClearCard: {
     alignItems: 'center',
   },
-  emptyText: {
-    color: '#666',
-    marginTop: 12,
-    fontSize: 14,
+  allClearHalo: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(31,174,111,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(31,174,111,0.32)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: s.sm,
   },
+  allClearTitle: {
+    color: colors.text,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
+  },
+  allClearSubtitle: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    marginTop: 2,
+    textAlign: 'center',
+  },
+
+  // ============ ORDER CARD ============
   orderCard: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
+    marginBottom: s.sm,
   },
   orderHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: s.sm,
   },
   orderNumber: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#0F172A',
-  },
-  orderBadge: {
-    backgroundColor: '#FF6B35',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  orderBadgeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold',
+    color: colors.text,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.2,
   },
   orderCustomer: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 8,
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    marginTop: 2,
   },
-  orderItems: {
-    fontSize: 14,
-    color: '#0F172A',
-    marginTop: 4,
+  newBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: s.xs,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,194,14,0.32)',
+  },
+  newDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: colors.primary,
+  },
+  newBadgeText: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.black,
+    letterSpacing: tracking.wider,
+  },
+  orderMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: s.sm,
+  },
+  orderMetaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bgRaised,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  orderMetaText: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+  },
+  orderTotal: {
+    color: colors.primary,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.black,
+    letterSpacing: 0.2,
   },
   orderActions: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 16,
+    gap: s.sm,
+    marginTop: s.md,
   },
-  rejectBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    alignItems: 'center',
-  },
-  rejectBtnText: {
-    color: '#666',
-    fontWeight: '600',
-  },
-  acceptBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#22C55E',
-    alignItems: 'center',
-  },
-  acceptBtnText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
+  orderActionItem: { flex: 1 },
+
+  // ============ ACTIONS GRID ============
   actionsGrid: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 12,
+    gap: s.sm,
   },
   actionCard: {
     flex: 1,
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
     alignItems: 'center',
   },
+  actionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,194,14,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: s.xs,
+  },
   actionText: {
-    fontSize: 12,
-    color: '#0F172A',
-    marginTop: 8,
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.2,
     textAlign: 'center',
   },
 });

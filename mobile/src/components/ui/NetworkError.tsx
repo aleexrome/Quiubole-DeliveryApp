@@ -1,24 +1,15 @@
 // ==========================================
-// NETWORK ERROR - ERROR DE CONEXION
+// DEVOLÓN — <NetworkError>
+//
+// Estado de "sin conexión" en dark mode premium. Reusa <Button> para
+// el retry y theme tokens para todo lo demás.
 // ==========================================
 
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-} from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-
-const COLORS = {
-  primary: '#FF6B35',
-  background: '#F8F9FA',
-  white: '#FFFFFF',
-  gray: '#6C757D',
-  text: '#212529',
-  warning: '#FFC107',
-};
+import { colors, s, radius, fontSize, fontWeight } from '../../theme';
+import Button from './Button';
 
 interface NetworkErrorProps {
   onRetry: () => void;
@@ -27,22 +18,28 @@ interface NetworkErrorProps {
 
 export default function NetworkError({
   onRetry,
-  message = 'No hay conexion a internet',
+  message = 'No hay conexión a internet',
 }: NetworkErrorProps) {
   return (
     <View style={styles.container}>
-      <View style={styles.iconContainer}>
-        <Ionicons name="cloud-offline-outline" size={64} color={COLORS.warning} />
+      <View style={styles.iconHalo}>
+        <Ionicons name="cloud-offline-outline" size={56} color={colors.primary} />
       </View>
-      <Text style={styles.title}>Sin conexion</Text>
+      <Text style={styles.title}>Sin conexión</Text>
       <Text style={styles.subtitle}>{message}</Text>
       <Text style={styles.hint}>
-        Verifica tu conexion a internet e intenta de nuevo
+        Verifica tu red e intenta de nuevo.
       </Text>
-      <TouchableOpacity style={styles.retryButton} onPress={onRetry}>
-        <Ionicons name="refresh" size={20} color={COLORS.white} />
-        <Text style={styles.retryText}>Reintentar</Text>
-      </TouchableOpacity>
+      <View style={styles.action}>
+        <Button
+          label="REINTENTAR"
+          icon="refresh"
+          iconPosition="left"
+          onPress={onRetry}
+          size="md"
+          fullWidth={false}
+        />
+      </View>
     </View>
   );
 }
@@ -50,46 +47,44 @@ export default function NetworkError({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.bg,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    padding: s['2xl'],
   },
-  iconContainer: {
-    marginBottom: 24,
+  iconHalo: {
+    width: 112,
+    height: 112,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: s.xl,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: COLORS.text,
+    color: colors.text,
+    fontSize: fontSize['2xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.4,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 16,
-    color: COLORS.gray,
+    color: colors.textMuted,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: s.xs,
   },
   hint: {
-    fontSize: 13,
-    color: COLORS.gray,
+    color: colors.textFaint,
+    fontSize: fontSize.sm,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: s.xs,
     lineHeight: 18,
   },
-  retryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
-    marginTop: 32,
-    gap: 8,
-  },
-  retryText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.white,
+  action: {
+    marginTop: s.xl,
   },
 });

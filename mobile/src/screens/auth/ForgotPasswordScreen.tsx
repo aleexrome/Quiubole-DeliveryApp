@@ -1,21 +1,17 @@
 // ==========================================
-// PANTALLA DE RECUPERAR PASSWORD
+// DEVOLÓN — Forgot Password
+//
+// Estado dual: form inicial + confirmación con halo amarillo.
+// Sin fondos claros, sin colores legacy. Todo via theme + primitivos.
 // ==========================================
 
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
+import { Screen, Header, Input, Button } from '../../components/ui';
+import { colors, s, radius, fontSize, fontWeight, tracking } from '../../theme';
 
 export default function ForgotPasswordScreen() {
   const navigation = useNavigation<any>();
@@ -26,69 +22,63 @@ export default function ForgotPasswordScreen() {
 
   const handleSend = async () => {
     if (!email) {
-      Alert.alert('Error', 'Ingresa tu correo electronico');
+      Alert.alert('Faltan datos', 'Ingresa tu correo electrónico');
       return;
     }
-
     try {
       await forgotPassword(email);
       setSent(true);
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Error al enviar email');
+      Alert.alert('Error', e.message || 'No pudimos enviar el correo');
     }
   };
 
   if (sent) {
     return (
-      <SafeAreaView style={styles.container}>
+      <Screen>
+        <Header title="" showBack={false} />
         <View style={styles.content}>
-          <View style={styles.iconContainer}>
-            <Ionicons name="checkmark-circle" size={64} color="#22C55E" />
+          <View style={[styles.iconHalo, styles.iconHaloSuccess]}>
+            <Ionicons name="checkmark-circle" size={56} color={colors.success} />
           </View>
-          <Text style={styles.title}>Revisa tu Email</Text>
+          <Text style={styles.eyebrow}>CORREO ENVIADO</Text>
+          <Text style={styles.title}>Revisa tu bandeja</Text>
           <Text style={styles.subtitle}>
-            Enviamos instrucciones para restablecer tu password a{'\n'}
-            <Text style={styles.email}>{email}</Text>
+            Mandamos instrucciones para restablecer tu contraseña a
           </Text>
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => navigation.navigate('Login')}
-          >
-            <Text style={styles.buttonText}>Volver al Login</Text>
-          </TouchableOpacity>
+          <Text style={styles.emailMono}>{email}</Text>
+          <View style={styles.actionWrap}>
+            <Button
+              label="VOLVER AL LOGIN"
+              icon="arrow-back"
+              iconPosition="left"
+              onPress={() => navigation.navigate('Login')}
+            />
+          </View>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-      >
-        <Ionicons name="arrow-back" size={24} color="#0F172A" />
-      </TouchableOpacity>
-
+    <Screen>
+      <Header title="" />
       <View style={styles.content}>
-        {/* Icon */}
-        <View style={styles.iconContainer}>
-          <Ionicons name="key" size={64} color="#FF6B35" />
+        <View style={styles.iconHalo}>
+          <Ionicons name="key-outline" size={48} color={colors.primary} />
         </View>
 
-        {/* Title */}
-        <Text style={styles.title}>¿Olvidaste tu Password?</Text>
+        <Text style={styles.eyebrow}>RECUPERAR ACCESO</Text>
+        <Text style={styles.title}>¿Olvidaste tu contraseña?</Text>
         <Text style={styles.subtitle}>
-          No te preocupes, ingresa tu email y te enviaremos instrucciones
+          Ingresa tu correo y te enviaremos instrucciones para restablecerla.
         </Text>
 
-        {/* Email Input */}
-        <View style={styles.inputContainer}>
-          <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Correo electronico"
+        <View style={styles.formWrap}>
+          <Input
+            variant="underline"
+            icon="mail-outline"
+            placeholder="Correo electrónico"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -97,114 +87,97 @@ export default function ForgotPasswordScreen() {
           />
         </View>
 
-        {/* Send Button */}
-        <TouchableOpacity
-          style={[styles.button, isLoading && styles.buttonDisabled]}
-          onPress={handleSend}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Enviar Instrucciones</Text>
-          )}
-        </TouchableOpacity>
+        <View style={styles.actionWrap}>
+          <Button
+            label="ENVIAR INSTRUCCIONES"
+            onPress={handleSend}
+            loading={isLoading}
+          />
+        </View>
 
-        {/* Back to Login */}
-        <TouchableOpacity
-          style={styles.backToLogin}
-          onPress={() => navigation.navigate('Login')}
-        >
-          <Ionicons name="arrow-back" size={16} color="#FF6B35" />
-          <Text style={styles.backToLoginText}>Volver al Login</Text>
-        </TouchableOpacity>
+        <View style={styles.backRow}>
+          <Ionicons name="arrow-back" size={14} color={colors.primary} />
+          <Text style={styles.backLink} onPress={() => navigation.navigate('Login')}>
+            Volver al login
+          </Text>
+        </View>
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  backButton: {
-    padding: 16,
-  },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: s.lg,
+    paddingBottom: s['3xl'],
   },
-  iconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#FFF5F0',
+  iconHalo: {
+    width: 104,
+    height: 104,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,194,14,0.4)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 32,
+    marginBottom: s.xl,
+  },
+  iconHaloSuccess: {
+    backgroundColor: 'rgba(31,174,111,0.12)',
+    borderColor: 'rgba(31,174,111,0.4)',
+  },
+  eyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+    textTransform: 'uppercase',
+    marginBottom: s.sm,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0F172A',
-    marginBottom: 12,
+    color: colors.text,
+    fontSize: fontSize['3xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.6,
     textAlign: 'center',
+    marginBottom: s.sm,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666',
+    color: colors.textMuted,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.medium,
     textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 32,
+    lineHeight: 22,
+    paddingHorizontal: s.md,
   },
-  email: {
-    color: '#FF6B35',
-    fontWeight: '600',
+  emailMono: {
+    color: colors.primary,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.4,
+    marginTop: s.xs,
   },
-  inputContainer: {
+  formWrap: {
+    width: '100%',
+    marginTop: s['2xl'],
+  },
+  actionWrap: {
+    width: '100%',
+    marginTop: s['2xl'],
+  },
+  backRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    marginBottom: 24,
-    width: '100%',
+    gap: s.xs,
+    marginTop: s.xl,
   },
-  inputIcon: {
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: 16,
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: '#FF6B35',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    width: '100%',
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  backToLogin: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 24,
-  },
-  backToLoginText: {
-    color: '#FF6B35',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 8,
+  backLink: {
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.3,
   },
 });

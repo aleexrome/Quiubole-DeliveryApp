@@ -32,6 +32,8 @@ export class AuthService {
     firstName: string;
     lastName: string;
     phone?: string;
+    role?: string;
+    zone?: string;
   }): Promise<{ user: Partial<User>; accessToken: string }> {
     const existingUser = await this.usersRepository.findOne({
       where: { email: data.email },
@@ -43,10 +45,24 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
+    // Roles que NO requieren aprobación de admin se auto-aprueban en el
+    // registro: customer (puede usar la app inmediatamente) y admin (no
+    // debería poder auto-registrarse vía API pública, pero por si acaso
+    // no lo bloqueamos aquí). Driver/restaurant/editor quedan en
+    // isApproved=false hasta que un admin los revise.
+    const role = (data as any).role || 'client';
+    const autoApprove = role === 'admin' || role === 'client' || role === 'customer';
+
+    // Casteamos a `any` porque `data.role` viene como string libre del
+    // DTO (acepta cualquier rol válido del enum UserRole), pero TS no
+    // unifica string con DeepPartial<UserRole>. Tipamos `user` como User
+    // (no User[]) porque create() devuelve la sobrecarga que TS no
+    // resuelve correctamente cuando el data tiene tipos amplios.
     const user = this.usersRepository.create({
       ...data,
       password: hashedPassword,
-    });
+      isApproved: autoApprove,
+    } as any) as unknown as User;
 
     const savedUser = await this.usersRepository.save(user);
 

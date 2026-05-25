@@ -1,5 +1,9 @@
 // ==========================================
-// SCHEDULE ORDER SCREEN - PROGRAMAR PEDIDO
+// DEVOLÓN — ScheduleOrderScreen
+//
+// Calendario semanal horizontal + grid de slots horarios + repeat options.
+// Footer sticky con CTA primario amarillo (Button). Day-card seleccionado
+// se rellena de amarillo; los disabled van en glass atenuado.
 // ==========================================
 
 import React, { useState } from 'react';
@@ -14,17 +18,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-
-const COLORS = {
-  primary: '#FF6B35',
-  secondary: '#2E4057',
-  background: '#F8F9FA',
-  white: '#FFFFFF',
-  gray: '#6C757D',
-  lightGray: '#E9ECEF',
-  text: '#212529',
-  success: '#4CAF50',
-};
+import { Header, Button } from '../../components/ui';
+import {
+  colors,
+  s,
+  radius,
+  shadows,
+  fontSize,
+  fontWeight,
+  tracking,
+} from '../../theme';
 
 interface TimeSlot {
   time: string;
@@ -45,13 +48,15 @@ const generateTimeSlots = (selectedDate: Date): TimeSlot[] => {
       if (isToday) {
         const slotTime = new Date(selectedDate);
         slotTime.setHours(hour, parseInt(minutes));
-        // Debe ser al menos 1 hora en el futuro
         available = slotTime.getTime() > now.getTime() + 3600000;
       }
 
       slots.push({
         time,
-        label: hour >= 12 ? `${hour > 12 ? hour - 12 : hour}:${minutes} PM` : `${hour}:${minutes} AM`,
+        label:
+          hour >= 12
+            ? `${hour > 12 ? hour - 12 : hour}:${minutes} PM`
+            : `${hour}:${minutes} AM`,
         available,
       });
     }
@@ -69,12 +74,14 @@ const getNextSevenDays = (): Date[] => {
   return days;
 };
 
+type RepeatOption = 'none' | 'weekly' | 'daily';
+
 export default function ScheduleOrderScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [repeatOption, setRepeatOption] = useState<'none' | 'weekly' | 'daily'>('none');
+  const [repeatOption, setRepeatOption] = useState<RepeatOption>('none');
 
   const days = getNextSevenDays();
   const timeSlots = generateTimeSlots(selectedDate);
@@ -85,22 +92,21 @@ export default function ScheduleOrderScreen() {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    if (date.toDateString() === today.toDateString()) return 'Hoy';
-    if (date.toDateString() === tomorrow.toDateString()) return 'Manana';
-    return date.toLocaleDateString('es-MX', { weekday: 'short' });
+    if (date.toDateString() === today.toDateString()) return 'HOY';
+    if (date.toDateString() === tomorrow.toDateString()) return 'MAÑANA';
+    return date.toLocaleDateString('es-MX', { weekday: 'short' }).toUpperCase();
   };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('es-MX', {
+  const formatDate = (date: Date) =>
+    date.toLocaleDateString('es-MX', {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
     });
-  };
 
   const handleConfirmSchedule = () => {
     if (!selectedTime) {
-      Alert.alert('Selecciona una hora', 'Por favor selecciona el horario de entrega');
+      Alert.alert('Selecciona una hora', 'Por favor selecciona el horario de entrega.');
       return;
     }
 
@@ -109,89 +115,77 @@ export default function ScheduleOrderScreen() {
     scheduledDateTime.setHours(parseInt(hours), parseInt(minutes));
 
     Alert.alert(
-      'Pedido programado!',
-      `Tu pedido sera entregado el ${formatDate(selectedDate)} a las ${selectedTime}`,
+      'Pedido programado',
+      `Tu pedido será entregado el ${formatDate(selectedDate)} a las ${selectedTime}.`,
       [
         {
           text: 'Perfecto',
-          onPress: () => {
+          onPress: () =>
             navigation.navigate('Checkout', {
               scheduledDate: scheduledDateTime.toISOString(),
               repeatOption,
-            });
-          },
+            }),
         },
-      ]
+      ],
     );
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Programar entrega</Text>
-        <View style={{ width: 40 }} />
-      </View>
+  const repeatOptions: { id: RepeatOption; label: string }[] = [
+    { id: 'none', label: 'Solo esta vez' },
+    { id: 'weekly', label: 'Cada semana' },
+    { id: 'daily', label: 'Cada día' },
+  ];
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Info Card */}
+  return (
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <Header title="Programar entrega" eyebrow="DEVOLÓN" />
+
+      <ScrollView
+        style={styles.flex}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* INFO CARD */}
         <View style={styles.infoCard}>
-          <Ionicons name="time" size={24} color={COLORS.primary} />
+          <View style={styles.infoIcon}>
+            <Ionicons name="time" size={20} color={colors.primary} />
+          </View>
           <View style={styles.infoContent}>
             <Text style={styles.infoTitle}>Recibe cuando quieras</Text>
             <Text style={styles.infoDesc}>
-              Programa tu pedido con anticipacion y lo recibiras justo a tiempo
+              Programa tu pedido con anticipación y lo recibirás justo a tiempo.
             </Text>
           </View>
         </View>
 
-        {/* Day Selection */}
+        {/* DAY */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Selecciona el dia</Text>
+          <Text style={styles.sectionEyebrow}>SELECCIONA EL DÍA</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            style={styles.daysScroll}
+            contentContainerStyle={styles.daysRow}
           >
             {days.map((date, index) => {
               const isSelected = date.toDateString() === selectedDate.toDateString();
               return (
                 <TouchableOpacity
                   key={index}
+                  activeOpacity={0.85}
                   style={[styles.dayCard, isSelected && styles.dayCardSelected]}
                   onPress={() => {
                     setSelectedDate(date);
                     setSelectedTime(null);
                   }}
                 >
-                  <Text
-                    style={[
-                      styles.dayName,
-                      isSelected && styles.dayTextSelected,
-                    ]}
-                  >
+                  <Text style={[styles.dayName, isSelected && styles.dayTextSelected]}>
                     {formatDayName(date)}
                   </Text>
-                  <Text
-                    style={[
-                      styles.dayNumber,
-                      isSelected && styles.dayTextSelected,
-                    ]}
-                  >
+                  <Text style={[styles.dayNumber, isSelected && styles.dayTextSelected]}>
                     {date.getDate()}
                   </Text>
-                  <Text
-                    style={[
-                      styles.dayMonth,
-                      isSelected && styles.dayTextSelected,
-                    ]}
-                  >
-                    {date.toLocaleDateString('es-MX', { month: 'short' })}
+                  <Text style={[styles.dayMonth, isSelected && styles.dayTextSelected]}>
+                    {date.toLocaleDateString('es-MX', { month: 'short' }).toUpperCase()}
                   </Text>
                 </TouchableOpacity>
               );
@@ -199,302 +193,336 @@ export default function ScheduleOrderScreen() {
           </ScrollView>
         </View>
 
-        {/* Time Selection */}
+        {/* TIME */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Selecciona la hora</Text>
+          <Text style={styles.sectionEyebrow}>SELECCIONA LA HORA</Text>
           <Text style={styles.sectionSubtitle}>{formatDate(selectedDate)}</Text>
           <View style={styles.timeSlotsGrid}>
-            {timeSlots.map((slot) => (
-              <TouchableOpacity
-                key={slot.time}
-                style={[
-                  styles.timeSlot,
-                  selectedTime === slot.time && styles.timeSlotSelected,
-                  !slot.available && styles.timeSlotDisabled,
-                ]}
-                onPress={() => slot.available && setSelectedTime(slot.time)}
-                disabled={!slot.available}
-              >
-                <Text
+            {timeSlots.map((slot) => {
+              const isSelected = selectedTime === slot.time;
+              return (
+                <TouchableOpacity
+                  key={slot.time}
+                  activeOpacity={0.85}
                   style={[
-                    styles.timeSlotText,
-                    selectedTime === slot.time && styles.timeSlotTextSelected,
-                    !slot.available && styles.timeSlotTextDisabled,
+                    styles.timeSlot,
+                    isSelected && styles.timeSlotSelected,
+                    !slot.available && styles.timeSlotDisabled,
                   ]}
+                  onPress={() => slot.available && setSelectedTime(slot.time)}
+                  disabled={!slot.available}
                 >
-                  {slot.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    style={[
+                      styles.timeSlotText,
+                      isSelected && styles.timeSlotTextSelected,
+                      !slot.available && styles.timeSlotTextDisabled,
+                    ]}
+                  >
+                    {slot.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
-        {/* Repeat Options */}
+        {/* REPEAT */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Repetir pedido</Text>
+          <Text style={styles.sectionEyebrow}>REPETIR PEDIDO</Text>
           <View style={styles.repeatOptions}>
-            <TouchableOpacity
-              style={[
-                styles.repeatOption,
-                repeatOption === 'none' && styles.repeatOptionSelected,
-              ]}
-              onPress={() => setRepeatOption('none')}
-            >
-              <Ionicons
-                name={repeatOption === 'none' ? 'radio-button-on' : 'radio-button-off'}
-                size={20}
-                color={repeatOption === 'none' ? COLORS.primary : COLORS.gray}
-              />
-              <Text
-                style={[
-                  styles.repeatOptionText,
-                  repeatOption === 'none' && styles.repeatOptionTextSelected,
-                ]}
-              >
-                Solo esta vez
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.repeatOption,
-                repeatOption === 'weekly' && styles.repeatOptionSelected,
-              ]}
-              onPress={() => setRepeatOption('weekly')}
-            >
-              <Ionicons
-                name={repeatOption === 'weekly' ? 'radio-button-on' : 'radio-button-off'}
-                size={20}
-                color={repeatOption === 'weekly' ? COLORS.primary : COLORS.gray}
-              />
-              <Text
-                style={[
-                  styles.repeatOptionText,
-                  repeatOption === 'weekly' && styles.repeatOptionTextSelected,
-                ]}
-              >
-                Cada semana
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.repeatOption,
-                repeatOption === 'daily' && styles.repeatOptionSelected,
-              ]}
-              onPress={() => setRepeatOption('daily')}
-            >
-              <Ionicons
-                name={repeatOption === 'daily' ? 'radio-button-on' : 'radio-button-off'}
-                size={20}
-                color={repeatOption === 'daily' ? COLORS.primary : COLORS.gray}
-              />
-              <Text
-                style={[
-                  styles.repeatOptionText,
-                  repeatOption === 'daily' && styles.repeatOptionTextSelected,
-                ]}
-              >
-                Cada dia
-              </Text>
-            </TouchableOpacity>
+            {repeatOptions.map((opt) => {
+              const active = repeatOption === opt.id;
+              return (
+                <TouchableOpacity
+                  key={opt.id}
+                  activeOpacity={0.85}
+                  style={[styles.repeatOption, active && styles.repeatOptionActive]}
+                  onPress={() => setRepeatOption(opt.id)}
+                >
+                  <Ionicons
+                    name={active ? 'radio-button-on' : 'radio-button-off'}
+                    size={20}
+                    color={active ? colors.primary : colors.textFaint}
+                  />
+                  <Text style={[styles.repeatOptionText, active && styles.repeatOptionTextActive]}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
           {repeatOption !== 'none' && (
             <View style={styles.repeatInfo}>
-              <Ionicons name="information-circle" size={16} color={COLORS.primary} />
+              <Ionicons name="information-circle" size={14} color={colors.primary} />
               <Text style={styles.repeatInfoText}>
-                Podras cancelar o modificar en cualquier momento desde tu historial de pedidos
+                Podrás cancelar o modificar en cualquier momento desde tu historial.
               </Text>
             </View>
           )}
         </View>
 
-        {/* Selected Summary */}
+        {/* SUMMARY */}
         {selectedTime && (
           <View style={styles.summaryCard}>
             <View style={styles.summaryIcon}>
-              <Ionicons name="calendar" size={24} color={COLORS.primary} />
+              <Ionicons name="calendar" size={20} color={colors.primary} />
             </View>
             <View style={styles.summaryContent}>
-              <Text style={styles.summaryTitle}>Entrega programada</Text>
-              <Text style={styles.summaryDate}>
-                {formatDate(selectedDate)} a las {selectedTime}
+              <Text style={styles.summaryEyebrow}>ENTREGA PROGRAMADA</Text>
+              <Text style={styles.summaryDate} numberOfLines={2}>
+                {formatDate(selectedDate)} · {selectedTime}
               </Text>
               {repeatOption !== 'none' && (
                 <Text style={styles.summaryRepeat}>
-                  Se repetira {repeatOption === 'weekly' ? 'cada semana' : 'cada dia'}
+                  Se repetirá {repeatOption === 'weekly' ? 'cada semana' : 'cada día'}
                 </Text>
               )}
             </View>
           </View>
         )}
 
-        <View style={{ height: 120 }} />
+        <View style={{ height: s['3xl'] }} />
       </ScrollView>
 
-      {/* Confirm Button */}
-      <View style={styles.bottomSection}>
-        <TouchableOpacity
-          style={[styles.confirmButton, !selectedTime && styles.confirmButtonDisabled]}
+      {/* STICKY FOOTER */}
+      <View style={styles.footer}>
+        <Button
+          label="CONFIRMAR HORARIO"
+          icon="checkmark-circle"
+          iconPosition="left"
           onPress={handleConfirmSchedule}
           disabled={!selectedTime}
-        >
-          <Ionicons name="checkmark-circle" size={24} color={COLORS.white} />
-          <Text style={styles.confirmButtonText}>Confirmar horario</Text>
-        </TouchableOpacity>
+        />
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
+  container: { flex: 1, backgroundColor: colors.bg },
+  flex: { flex: 1 },
+  scrollContent: {
+    paddingTop: s.md,
+    paddingBottom: s['2xl'],
   },
-  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text },
-  content: { flex: 1 },
 
-  // Info Card
+  // ============ INFO CARD ============
   infoCard: {
     flexDirection: 'row',
-    backgroundColor: `${COLORS.primary}10`,
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
-    gap: 12,
+    alignItems: 'center',
+    gap: s.sm,
+    backgroundColor: 'rgba(255,194,14,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,194,14,0.25)',
+    marginHorizontal: s.xl,
+    padding: s.md,
+    borderRadius: radius.xl,
+    marginBottom: s.lg,
+  },
+  infoIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   infoContent: { flex: 1 },
-  infoTitle: { fontSize: 15, fontWeight: '700', color: COLORS.text },
-  infoDesc: { fontSize: 13, color: COLORS.gray, marginTop: 4, lineHeight: 18 },
+  infoTitle: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
+  },
+  infoDesc: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    marginTop: 2,
+    lineHeight: 18,
+  },
 
-  // Section
-  section: { marginBottom: 24, paddingHorizontal: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text, marginBottom: 8 },
-  sectionSubtitle: { fontSize: 13, color: COLORS.gray, marginBottom: 12 },
+  // ============ SECTIONS ============
+  section: {
+    marginBottom: s.xl,
+    paddingHorizontal: s.xl,
+  },
+  sectionEyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+    marginBottom: s.xs,
+  },
+  sectionSubtitle: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    marginBottom: s.md,
+    textTransform: 'capitalize',
+  },
 
-  // Days
-  daysScroll: { marginLeft: -8 },
+  // ============ DAYS ============
+  daysRow: {
+    gap: s.xs,
+    paddingRight: s.lg,
+  },
   dayCard: {
-    width: 72,
-    paddingVertical: 12,
-    marginHorizontal: 4,
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
+    width: 68,
+    paddingVertical: s.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.xl,
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
   },
   dayCardSelected: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    ...shadows.glow,
   },
-  dayName: { fontSize: 12, fontWeight: '600', color: COLORS.gray },
-  dayNumber: { fontSize: 20, fontWeight: '700', color: COLORS.text, marginVertical: 4 },
-  dayMonth: { fontSize: 11, color: COLORS.gray },
-  dayTextSelected: { color: COLORS.white },
+  dayName: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
+  },
+  dayNumber: {
+    color: colors.text,
+    fontSize: fontSize['2xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.5,
+    marginVertical: 2,
+  },
+  dayMonth: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
+  },
+  dayTextSelected: { color: colors.onPrimary },
 
-  // Time Slots
+  // ============ TIME SLOTS ============
   timeSlotsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: s.xs,
   },
   timeSlot: {
-    width: '23%',
-    paddingVertical: 12,
-    backgroundColor: COLORS.white,
-    borderRadius: 8,
+    width: '23.5%',
+    paddingVertical: s.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
   },
   timeSlotSelected: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   timeSlotDisabled: {
-    backgroundColor: COLORS.lightGray,
-    opacity: 0.5,
+    backgroundColor: 'transparent',
+    borderColor: colors.border,
+    opacity: 0.35,
   },
-  timeSlotText: { fontSize: 13, fontWeight: '600', color: COLORS.text },
-  timeSlotTextSelected: { color: COLORS.white },
-  timeSlotTextDisabled: { color: COLORS.gray },
+  timeSlotText: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.heavy,
+  },
+  timeSlotTextSelected: { color: colors.onPrimary },
+  timeSlotTextDisabled: { color: colors.textMuted },
 
-  // Repeat Options
-  repeatOptions: { gap: 8 },
+  // ============ REPEAT ============
+  repeatOptions: { gap: s.xs },
   repeatOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
-    padding: 16,
-    borderRadius: 12,
-    gap: 12,
+    gap: s.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: s.md,
+    borderRadius: radius.xl,
   },
-  repeatOptionSelected: {
-    backgroundColor: `${COLORS.primary}10`,
+  repeatOptionActive: {
+    backgroundColor: 'rgba(255,194,14,0.08)',
+    borderColor: colors.primary,
   },
-  repeatOptionText: { fontSize: 14, fontWeight: '500', color: COLORS.text },
-  repeatOptionTextSelected: { color: COLORS.primary, fontWeight: '600' },
+  repeatOptionText: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
+  },
+  repeatOptionTextActive: {
+    color: colors.primary,
+    fontWeight: fontWeight.heavy,
+  },
   repeatInfo: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginTop: 12,
-    gap: 8,
+    gap: 6,
+    marginTop: s.sm,
   },
-  repeatInfoText: { flex: 1, fontSize: 12, color: COLORS.gray, lineHeight: 16 },
+  repeatInfoText: {
+    flex: 1,
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
+    lineHeight: 16,
+  },
 
-  // Summary Card
+  // ============ SUMMARY ============
   summaryCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
-    marginHorizontal: 16,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: COLORS.primary,
+    gap: s.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: 'rgba(255,194,14,0.4)',
+    marginHorizontal: s.xl,
+    padding: s.md,
+    borderRadius: radius.xl,
   },
   summaryIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: `${COLORS.primary}15`,
-    justifyContent: 'center',
+    width: 44,
+    height: 44,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,194,14,0.12)',
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  summaryContent: { flex: 1, marginLeft: 12 },
-  summaryTitle: { fontSize: 14, fontWeight: '700', color: COLORS.text },
-  summaryDate: { fontSize: 13, color: COLORS.gray, marginTop: 2 },
-  summaryRepeat: { fontSize: 12, color: COLORS.primary, fontWeight: '600', marginTop: 4 },
+  summaryContent: { flex: 1 },
+  summaryEyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+  },
+  summaryDate: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
+    marginTop: 2,
+    textTransform: 'capitalize',
+  },
+  summaryRepeat: {
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.heavy,
+    marginTop: 2,
+  },
 
-  // Bottom Section
-  bottomSection: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: COLORS.white,
-    padding: 16,
-    paddingBottom: 32,
+  // ============ FOOTER ============
+  footer: {
+    paddingHorizontal: s.xl,
+    paddingTop: s.sm,
+    paddingBottom: s.sm,
+    backgroundColor: colors.bg,
     borderTopWidth: 1,
-    borderTopColor: COLORS.lightGray,
+    borderTopColor: colors.border,
   },
-  confirmButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.primary,
-    paddingVertical: 16,
-    borderRadius: 12,
-    gap: 8,
-  },
-  confirmButtonDisabled: { backgroundColor: COLORS.lightGray },
-  confirmButtonText: { fontSize: 16, fontWeight: '700', color: COLORS.white },
 });

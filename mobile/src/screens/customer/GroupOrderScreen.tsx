@@ -1,5 +1,12 @@
 // ==========================================
-// GROUP ORDER SCREEN - PEDIDO GRUPAL
+// DEVOLÓN — GroupOrderScreen
+//
+// Pedido grupal: dos vistas según hay grupo activo o no.
+//
+// Vista vacía: hero glass + "Crear grupo" + join input + features list.
+// Vista activa: hero card amarillo con código pill, lista de miembros
+// glass, división de cuenta toggle, items propios y footer sticky de
+// estado/ordenar.
 // ==========================================
 
 import React, { useState } from 'react';
@@ -12,24 +19,21 @@ import {
   TextInput,
   Alert,
   Share,
-  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useGroupOrderStore } from '../../store/groupOrderStore';
-
-const COLORS = {
-  primary: '#FF6B35',
-  secondary: '#2E4057',
-  background: '#F8F9FA',
-  white: '#FFFFFF',
-  gray: '#6C757D',
-  lightGray: '#E9ECEF',
-  text: '#212529',
-  success: '#4CAF50',
-  warning: '#FFC107',
-};
+import { Header, Button } from '../../components/ui';
+import {
+  colors,
+  s,
+  radius,
+  shadows,
+  fontSize,
+  fontWeight,
+  tracking,
+} from '../../theme';
 
 export default function GroupOrderScreen() {
   const navigation = useNavigation<any>();
@@ -45,32 +49,26 @@ export default function GroupOrderScreen() {
   } = useGroupOrderStore();
 
   const [joinCode, setJoinCode] = useState('');
-  const [showJoinModal, setShowJoinModal] = useState(false);
   const restaurantData = route.params?.restaurant;
 
   const handleCreateGroup = () => {
     if (restaurantData) {
-      createGroupOrder(
-        restaurantData.id,
-        restaurantData.name,
-        restaurantData.image
-      );
+      createGroupOrder(restaurantData.id, restaurantData.name, restaurantData.image);
     } else {
-      Alert.alert('Error', 'Selecciona un restaurante primero');
+      Alert.alert('Error', 'Selecciona un restaurante primero.');
     }
   };
 
   const handleJoinGroup = () => {
     if (joinCode.length !== 6) {
-      Alert.alert('Error', 'El codigo debe tener 6 caracteres');
+      Alert.alert('Error', 'El código debe tener 6 caracteres.');
       return;
     }
     const success = joinGroupOrder(joinCode.toUpperCase(), 'Yo');
     if (success) {
-      setShowJoinModal(false);
       setJoinCode('');
     } else {
-      Alert.alert('Error', 'No se encontro el grupo');
+      Alert.alert('Error', 'No se encontró el grupo.');
     }
   };
 
@@ -78,7 +76,7 @@ export default function GroupOrderScreen() {
     if (!activeGroupOrder) return;
     try {
       await Share.share({
-        message: `Unete a mi pedido grupal en Quiubole!\n\nRestaurante: ${activeGroupOrder.restaurantName}\nCodigo: ${activeGroupOrder.code}\n\nDescarga la app: https://quiubole.mx`,
+        message: `Únete a mi pedido grupal en Devolón.\n\nRestaurante: ${activeGroupOrder.restaurantName}\nCódigo: ${activeGroupOrder.code}\n\nDescarga la app: https://devolon.mx`,
       });
     } catch (error) {
       console.error(error);
@@ -86,105 +84,101 @@ export default function GroupOrderScreen() {
   };
 
   const handleLeaveGroup = () => {
-    Alert.alert(
-      'Salir del grupo',
-      'Seguro que quieres salir del pedido grupal?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Salir',
-          style: 'destructive',
-          onPress: () => {
-            leaveGroupOrder();
-            navigation.goBack();
-          },
+    Alert.alert('Salir del grupo', '¿Seguro que quieres salir del pedido grupal?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Salir',
+        style: 'destructive',
+        onPress: () => {
+          leaveGroupOrder();
+          navigation.goBack();
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleToggleReady = () => {
     if (!activeGroupOrder) return;
-    const currentUser = activeGroupOrder.members.find(
-      (m) => m.id === 'current-user-id'
-    );
+    const currentUser = activeGroupOrder.members.find((m) => m.id === 'current-user-id');
     if (currentUser) {
       setMemberReady(currentUser.id, !currentUser.isReady);
     }
   };
 
-  const allMembersReady =
-    activeGroupOrder?.members.every((m) => m.isReady) ?? false;
+  const allMembersReady = activeGroupOrder?.members.every((m) => m.isReady) ?? false;
   const isHost = activeGroupOrder?.hostId === 'current-user-id';
-  const currentUserMember = activeGroupOrder?.members.find(
-    (m) => m.id === 'current-user-id'
-  );
+  const currentUserMember = activeGroupOrder?.members.find((m) => m.id === 'current-user-id');
 
-  // Vista para crear o unirse a un grupo
+  // ============ VISTA: CREAR / UNIRSE ============
   if (!activeGroupOrder) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}
-          >
-            <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Pedido Grupal</Text>
-          <View style={{ width: 40 }} />
-        </View>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <Header title="Pedido grupal" eyebrow="DEVOLÓN" />
 
-        <ScrollView style={styles.content}>
-          <View style={styles.heroSection}>
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* HERO */}
+          <View style={styles.hero}>
             <View style={styles.heroIcon}>
-              <Ionicons name="people" size={48} color={COLORS.primary} />
+              <Ionicons name="people" size={32} color={colors.primary} />
             </View>
-            <Text style={styles.heroTitle}>Pide con amigos!</Text>
+            <Text style={styles.heroEyebrow}>COMER JUNTOS</Text>
+            <Text style={styles.heroTitle}>Pide con amigos</Text>
             <Text style={styles.heroSubtitle}>
-              Crea un pedido grupal y deja que cada quien agregue lo suyo. Divide
-              la cuenta facilmente.
+              Crea un pedido grupal y deja que cada quien agregue lo suyo. Divide la cuenta fácilmente.
             </Text>
           </View>
 
           {restaurantData && (
-            <View style={styles.restaurantCard}>
-              <Ionicons name="restaurant" size={24} color={COLORS.primary} />
-              <View style={styles.restaurantInfo}>
-                <Text style={styles.restaurantName}>{restaurantData.name}</Text>
-                <Text style={styles.restaurantLabel}>Restaurante seleccionado</Text>
+            <View style={styles.restaurantBanner}>
+              <View style={styles.restaurantBannerIcon}>
+                <Ionicons name="restaurant" size={18} color={colors.primary} />
+              </View>
+              <View style={styles.restaurantBannerInfo}>
+                <Text style={styles.restaurantBannerEyebrow}>RESTAURANTE</Text>
+                <Text style={styles.restaurantBannerName} numberOfLines={1}>
+                  {restaurantData.name}
+                </Text>
               </View>
             </View>
           )}
 
-          <TouchableOpacity
-            style={[styles.actionButton, !restaurantData && styles.disabledButton]}
-            onPress={handleCreateGroup}
-            disabled={!restaurantData}
-          >
-            <Ionicons name="add-circle" size={24} color={COLORS.white} />
-            <Text style={styles.actionButtonText}>Crear pedido grupal</Text>
-          </TouchableOpacity>
+          <View style={styles.ctaWrap}>
+            <Button
+              label="CREAR PEDIDO GRUPAL"
+              icon="add-circle"
+              iconPosition="left"
+              onPress={handleCreateGroup}
+              disabled={!restaurantData}
+            />
+          </View>
 
+          {/* DIVIDER */}
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>o</Text>
+            <Text style={styles.dividerText}>O</Text>
             <View style={styles.dividerLine} />
           </View>
 
-          <View style={styles.joinSection}>
-            <Text style={styles.joinTitle}>Unirte a un grupo existente</Text>
-            <View style={styles.joinInputContainer}>
+          {/* JOIN */}
+          <View style={styles.joinBlock}>
+            <Text style={styles.joinEyebrow}>UNIRTE A UN GRUPO</Text>
+            <View style={styles.joinRow}>
               <TextInput
                 style={styles.joinInput}
-                placeholder="Codigo de 6 digitos"
-                placeholderTextColor={COLORS.gray}
+                placeholder="CÓDIGO"
+                placeholderTextColor={colors.textFaint}
                 value={joinCode}
                 onChangeText={(text) => setJoinCode(text.toUpperCase())}
                 maxLength={6}
                 autoCapitalize="characters"
+                selectionColor={colors.primary}
               />
               <TouchableOpacity
+                activeOpacity={0.88}
                 style={[
                   styles.joinButton,
                   joinCode.length !== 6 && styles.joinButtonDisabled,
@@ -192,147 +186,146 @@ export default function GroupOrderScreen() {
                 onPress={handleJoinGroup}
                 disabled={joinCode.length !== 6}
               >
-                <Text style={styles.joinButtonText}>Unirse</Text>
+                <Text style={styles.joinButtonText}>UNIRSE</Text>
               </TouchableOpacity>
             </View>
           </View>
 
+          {/* FEATURES */}
           <View style={styles.features}>
-            <Text style={styles.featuresTitle}>Como funciona</Text>
-            <View style={styles.featureItem}>
-              <View style={styles.featureIcon}>
-                <Ionicons name="share-social" size={20} color={COLORS.primary} />
+            <Text style={styles.featuresEyebrow}>CÓMO FUNCIONA</Text>
+            {[
+              {
+                icon: 'share-social' as const,
+                label: 'Comparte el código',
+                desc: 'Invita a tus amigos con el código único del grupo.',
+              },
+              {
+                icon: 'restaurant' as const,
+                label: 'Cada quien elige',
+                desc: 'Todos agregan sus productos favoritos al pedido.',
+              },
+              {
+                icon: 'card' as const,
+                label: 'Divide la cuenta',
+                desc: 'Paga lo tuyo o divide partes iguales al final.',
+              },
+            ].map((f, i) => (
+              <View key={i} style={styles.featureItem}>
+                <View style={styles.featureIcon}>
+                  <Ionicons name={f.icon} size={18} color={colors.primary} />
+                </View>
+                <View style={styles.featureContent}>
+                  <Text style={styles.featureLabel}>{f.label}</Text>
+                  <Text style={styles.featureDesc}>{f.desc}</Text>
+                </View>
               </View>
-              <View style={styles.featureContent}>
-                <Text style={styles.featureLabel}>Comparte el codigo</Text>
-                <Text style={styles.featureDesc}>
-                  Invita a tus amigos con el codigo unico
-                </Text>
-              </View>
-            </View>
-            <View style={styles.featureItem}>
-              <View style={styles.featureIcon}>
-                <Ionicons name="restaurant" size={20} color={COLORS.primary} />
-              </View>
-              <View style={styles.featureContent}>
-                <Text style={styles.featureLabel}>Cada quien elige</Text>
-                <Text style={styles.featureDesc}>
-                  Todos agregan sus productos favoritos
-                </Text>
-              </View>
-            </View>
-            <View style={styles.featureItem}>
-              <View style={styles.featureIcon}>
-                <Ionicons name="card" size={20} color={COLORS.primary} />
-              </View>
-              <View style={styles.featureContent}>
-                <Text style={styles.featureLabel}>Divide la cuenta</Text>
-                <Text style={styles.featureDesc}>
-                  Paga lo tuyo o divide partes iguales
-                </Text>
-              </View>
-            </View>
+            ))}
           </View>
         </ScrollView>
       </SafeAreaView>
     );
   }
 
-  // Vista del pedido grupal activo
+  // ============ VISTA: GRUPO ACTIVO ============
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Pedido Grupal</Text>
-        <TouchableOpacity onPress={handleLeaveGroup}>
-          <Ionicons name="exit-outline" size={24} color={COLORS.gray} />
-        </TouchableOpacity>
-      </View>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <Header
+        title="Pedido grupal"
+        eyebrow="DEVOLÓN"
+        rightIcon="exit-outline"
+        onRightPress={handleLeaveGroup}
+      />
 
-      <ScrollView style={styles.content}>
-        {/* Code Card */}
+      <ScrollView
+        style={styles.flex}
+        contentContainerStyle={styles.activeScrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* CODE CARD */}
         <View style={styles.codeCard}>
           <View style={styles.codeHeader}>
-            <Text style={styles.codeLabel}>Codigo del grupo</Text>
+            <Text style={styles.codeEyebrow}>CÓDIGO DEL GRUPO</Text>
             <View style={styles.statusBadge}>
-              <Text style={styles.statusText}>
-                {activeGroupOrder.status === 'open' ? 'Abierto' : 'Cerrado'}
+              <View style={styles.statusDot} />
+              <Text style={styles.statusBadgeText}>
+                {activeGroupOrder.status === 'open' ? 'ABIERTO' : 'CERRADO'}
               </Text>
             </View>
           </View>
           <Text style={styles.codeText}>{activeGroupOrder.code}</Text>
-          <TouchableOpacity style={styles.shareButton} onPress={handleShareCode}>
-            <Ionicons name="share-social" size={20} color={COLORS.white} />
-            <Text style={styles.shareButtonText}>Compartir</Text>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.shareButton}
+            onPress={handleShareCode}
+          >
+            <Ionicons name="share-social" size={18} color={colors.onPrimary} />
+            <Text style={styles.shareButtonText}>COMPARTIR</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Restaurant Info */}
+        {/* RESTAURANT */}
         <View style={styles.restaurantSection}>
-          <Ionicons name="restaurant" size={20} color={COLORS.primary} />
-          <Text style={styles.restaurantSectionName}>
-            {activeGroupOrder.restaurantName}
-          </Text>
+          <View style={styles.restaurantSectionIcon}>
+            <Ionicons name="restaurant" size={18} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.restaurantSectionEyebrow}>RESTAURANTE</Text>
+            <Text style={styles.restaurantSectionName} numberOfLines={1}>
+              {activeGroupOrder.restaurantName}
+            </Text>
+          </View>
         </View>
 
-        {/* Split Method */}
+        {/* SPLIT METHOD */}
         <View style={styles.splitSection}>
-          <Text style={styles.splitTitle}>Division de cuenta</Text>
+          <Text style={styles.splitEyebrow}>DIVISIÓN DE CUENTA</Text>
           <View style={styles.splitOptions}>
             <TouchableOpacity
+              activeOpacity={0.85}
               style={[
                 styles.splitOption,
-                activeGroupOrder.splitMethod === 'individual' &&
-                  styles.splitOptionActive,
+                activeGroupOrder.splitMethod === 'individual' && styles.splitOptionActive,
               ]}
               onPress={() => setSplitMethod('individual')}
             >
               <Ionicons
                 name="person"
-                size={20}
+                size={18}
                 color={
                   activeGroupOrder.splitMethod === 'individual'
-                    ? COLORS.primary
-                    : COLORS.gray
+                    ? colors.primary
+                    : colors.textMuted
                 }
               />
               <Text
                 style={[
                   styles.splitOptionText,
-                  activeGroupOrder.splitMethod === 'individual' &&
-                    styles.splitOptionTextActive,
+                  activeGroupOrder.splitMethod === 'individual' && styles.splitOptionTextActive,
                 ]}
               >
                 Cada quien lo suyo
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
+              activeOpacity={0.85}
               style={[
                 styles.splitOption,
-                activeGroupOrder.splitMethod === 'equal' &&
-                  styles.splitOptionActive,
+                activeGroupOrder.splitMethod === 'equal' && styles.splitOptionActive,
               ]}
               onPress={() => setSplitMethod('equal')}
             >
               <Ionicons
                 name="people"
-                size={20}
+                size={18}
                 color={
-                  activeGroupOrder.splitMethod === 'equal'
-                    ? COLORS.primary
-                    : COLORS.gray
+                  activeGroupOrder.splitMethod === 'equal' ? colors.primary : colors.textMuted
                 }
               />
               <Text
                 style={[
                   styles.splitOptionText,
-                  activeGroupOrder.splitMethod === 'equal' &&
-                    styles.splitOptionTextActive,
+                  activeGroupOrder.splitMethod === 'equal' && styles.splitOptionTextActive,
                 ]}
               >
                 Partes iguales
@@ -341,10 +334,10 @@ export default function GroupOrderScreen() {
           </View>
         </View>
 
-        {/* Members List */}
+        {/* MEMBERS */}
         <View style={styles.membersSection}>
-          <Text style={styles.membersTitle}>
-            Participantes ({activeGroupOrder.members.length})
+          <Text style={styles.sectionEyebrow}>
+            PARTICIPANTES ({activeGroupOrder.members.length})
           </Text>
           {activeGroupOrder.members.map((member) => (
             <View key={member.id} style={styles.memberCard}>
@@ -355,34 +348,35 @@ export default function GroupOrderScreen() {
               </View>
               <View style={styles.memberInfo}>
                 <View style={styles.memberHeader}>
-                  <Text style={styles.memberName}>
-                    {member.name} {member.isHost && '(Anfitrion)'}
+                  <Text style={styles.memberName} numberOfLines={1}>
+                    {member.name}
+                    {member.isHost && <Text style={styles.memberHost}>  · ANFITRIÓN</Text>}
                   </Text>
                   {member.isReady && (
                     <View style={styles.readyBadge}>
-                      <Ionicons name="checkmark" size={12} color={COLORS.white} />
-                      <Text style={styles.readyText}>Listo</Text>
+                      <Ionicons name="checkmark" size={11} color={colors.bg} />
+                      <Text style={styles.readyText}>LISTO</Text>
                     </View>
                   )}
                 </View>
                 <Text style={styles.memberItems}>
-                  {member.items.length} productos - ${member.subtotal.toFixed(2)}
+                  {member.items.length} productos · ${member.subtotal.toFixed(2)}
                 </Text>
               </View>
             </View>
           ))}
         </View>
 
-        {/* My Items */}
+        {/* MY ITEMS */}
         {currentUserMember && currentUserMember.items.length > 0 && (
           <View style={styles.myItemsSection}>
-            <Text style={styles.myItemsTitle}>Mis productos</Text>
+            <Text style={styles.sectionEyebrow}>MIS PRODUCTOS</Text>
             {currentUserMember.items.map((item) => (
               <View key={item.id} style={styles.itemCard}>
                 <View style={styles.itemInfo}>
-                  <Text style={styles.itemName}>{item.productName}</Text>
+                  <Text style={styles.itemName} numberOfLines={1}>{item.productName}</Text>
                   <Text style={styles.itemPrice}>
-                    ${item.price.toFixed(2)} x {item.quantity}
+                    ${item.price.toFixed(2)} × {item.quantity}
                   </Text>
                 </View>
                 <Text style={styles.itemTotal}>
@@ -393,8 +387,9 @@ export default function GroupOrderScreen() {
           </View>
         )}
 
-        {/* Add Products Button */}
+        {/* ADD PRODUCTS */}
         <TouchableOpacity
+          activeOpacity={0.85}
           style={styles.addProductsButton}
           onPress={() =>
             navigation.navigate('RestaurantDetail', {
@@ -403,32 +398,34 @@ export default function GroupOrderScreen() {
             })
           }
         >
-          <Ionicons name="add" size={24} color={COLORS.primary} />
-          <Text style={styles.addProductsText}>Agregar productos</Text>
+          <Ionicons name="add" size={20} color={colors.primary} />
+          <Text style={styles.addProductsText}>AGREGAR PRODUCTOS</Text>
         </TouchableOpacity>
 
-        {/* Summary */}
+        {/* SUMMARY */}
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Total del grupo</Text>
+            <Text style={styles.summaryLabel}>TOTAL DEL GRUPO</Text>
             <Text style={styles.summaryValue}>
               ${activeGroupOrder.totalAmount.toFixed(2)}
             </Text>
           </View>
+          <View style={styles.summaryDivider} />
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Tu parte</Text>
+            <Text style={styles.summaryLabel}>TU PARTE</Text>
             <Text style={styles.summaryValueHighlight}>
               ${currentUserMember?.subtotal.toFixed(2) || '0.00'}
             </Text>
           </View>
         </View>
 
-        <View style={{ height: 120 }} />
+        <View style={{ height: s['2xl'] }} />
       </ScrollView>
 
-      {/* Bottom Actions */}
-      <View style={styles.bottomActions}>
+      {/* FOOTER */}
+      <View style={styles.footerActions}>
         <TouchableOpacity
+          activeOpacity={0.88}
           style={[
             styles.readyButton,
             currentUserMember?.isReady && styles.readyButtonActive,
@@ -437,8 +434,8 @@ export default function GroupOrderScreen() {
         >
           <Ionicons
             name={currentUserMember?.isReady ? 'checkmark-circle' : 'checkmark-circle-outline'}
-            size={24}
-            color={currentUserMember?.isReady ? COLORS.white : COLORS.primary}
+            size={20}
+            color={currentUserMember?.isReady ? colors.bg : colors.primary}
           />
           <Text
             style={[
@@ -446,26 +443,21 @@ export default function GroupOrderScreen() {
               currentUserMember?.isReady && styles.readyButtonTextActive,
             ]}
           >
-            {currentUserMember?.isReady ? 'Listo!' : 'Estoy listo'}
+            {currentUserMember?.isReady ? '¡LISTO!' : 'ESTOY LISTO'}
           </Text>
         </TouchableOpacity>
 
         {isHost && (
-          <TouchableOpacity
-            style={[
-              styles.orderButton,
-              !allMembersReady && styles.orderButtonDisabled,
-            ]}
-            disabled={!allMembersReady}
-            onPress={() => {
-              lockGroupOrder();
-              navigation.navigate('Checkout', { groupOrderId: activeGroupOrder.id });
-            }}
-          >
-            <Text style={styles.orderButtonText}>
-              {allMembersReady ? 'Ordenar' : 'Esperando a todos...'}
-            </Text>
-          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Button
+              label={allMembersReady ? 'ORDENAR' : 'ESPERANDO…'}
+              onPress={() => {
+                lockGroupOrder();
+                navigation.navigate('Checkout', { groupOrderId: activeGroupOrder.id });
+              }}
+              disabled={!allMembersReady}
+            />
+          </View>
         )}
       </View>
     </SafeAreaView>
@@ -473,287 +465,545 @@ export default function GroupOrderScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
+  container: { flex: 1, backgroundColor: colors.bg },
+  flex: { flex: 1 },
+  scrollContent: {
+    paddingHorizontal: s.xl,
+    paddingTop: s.md,
+    paddingBottom: s['3xl'],
   },
-  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text },
-  content: { flex: 1 },
+  activeScrollContent: {
+    paddingTop: s.md,
+    paddingBottom: s['2xl'],
+  },
 
-  // Hero Section
-  heroSection: { alignItems: 'center', padding: 32 },
+  // ============ HERO (empty state) ============
+  hero: {
+    alignItems: 'center',
+    paddingVertical: s.xl,
+  },
   heroIcon: {
     width: 80,
     height: 80,
-    borderRadius: 40,
-    backgroundColor: `${COLORS.primary}20`,
-    justifyContent: 'center',
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: 'rgba(255,194,14,0.35)',
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'center',
+    marginBottom: s.md,
   },
-  heroTitle: { fontSize: 24, fontWeight: '700', color: COLORS.text },
-  heroSubtitle: {
-    fontSize: 14,
-    color: COLORS.gray,
+  heroEyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+  },
+  heroTitle: {
+    color: colors.text,
+    fontSize: fontSize['3xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.8,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: s.xs,
+  },
+  heroSubtitle: {
+    color: colors.textMuted,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.medium,
+    textAlign: 'center',
+    marginTop: s.xs,
     lineHeight: 20,
+    paddingHorizontal: s.md,
   },
 
-  // Restaurant Card
-  restaurantCard: {
+  // ============ RESTAURANT BANNER ============
+  restaurantBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
-    marginHorizontal: 16,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
+    gap: s.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: s.md,
+    borderRadius: radius.xl,
+    marginBottom: s.md,
   },
-  restaurantInfo: { marginLeft: 12 },
-  restaurantName: { fontSize: 16, fontWeight: '600', color: COLORS.text },
-  restaurantLabel: { fontSize: 12, color: COLORS.gray, marginTop: 2 },
-
-  // Action Button
-  actionButton: {
-    flexDirection: 'row',
+  restaurantBannerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,194,14,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.primary,
-    marginHorizontal: 16,
-    padding: 16,
-    borderRadius: 12,
-    gap: 8,
   },
-  disabledButton: { backgroundColor: COLORS.lightGray },
-  actionButtonText: { fontSize: 16, fontWeight: '700', color: COLORS.white },
+  restaurantBannerInfo: { flex: 1 },
+  restaurantBannerEyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+  },
+  restaurantBannerName: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
+    marginTop: 2,
+  },
 
-  // Divider
-  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 24, marginHorizontal: 16 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: COLORS.lightGray },
-  dividerText: { marginHorizontal: 16, color: COLORS.gray, fontSize: 14 },
+  ctaWrap: { marginBottom: s.lg },
 
-  // Join Section
-  joinSection: { marginHorizontal: 16 },
-  joinTitle: { fontSize: 16, fontWeight: '600', color: COLORS.text, marginBottom: 12 },
-  joinInputContainer: { flexDirection: 'row', gap: 12 },
+  // ============ DIVIDER ============
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: s.lg,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  dividerText: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+    marginHorizontal: s.sm,
+  },
+
+  // ============ JOIN ============
+  joinBlock: {},
+  joinEyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+    marginBottom: s.xs,
+  },
+  joinRow: {
+    flexDirection: 'row',
+    gap: s.xs,
+  },
   joinInput: {
     flex: 1,
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 18,
-    fontWeight: '600',
-    letterSpacing: 4,
+    height: 56,
+    backgroundColor: colors.inputBg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    paddingHorizontal: s.md,
+    color: colors.text,
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.black,
+    letterSpacing: tracking.wider,
     textAlign: 'center',
   },
   joinButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+    backgroundColor: colors.primary,
+    paddingHorizontal: s.lg,
+    height: 56,
+    borderRadius: radius.lg,
     justifyContent: 'center',
+    ...shadows.glow,
   },
-  joinButtonDisabled: { backgroundColor: COLORS.lightGray },
-  joinButtonText: { fontSize: 14, fontWeight: '700', color: COLORS.white },
+  joinButtonDisabled: {
+    backgroundColor: colors.surfaceStrong,
+    opacity: 0.6,
+  },
+  joinButtonText: {
+    color: colors.onPrimary,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.black,
+    letterSpacing: tracking.widest,
+  },
 
-  // Features
-  features: { marginTop: 32, marginHorizontal: 16 },
-  featuresTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text, marginBottom: 16 },
-  featureItem: { flexDirection: 'row', marginBottom: 16 },
+  // ============ FEATURES ============
+  features: { marginTop: s['2xl'] },
+  featuresEyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+    marginBottom: s.sm,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: s.sm,
+    marginBottom: s.md,
+  },
   featureIcon: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: `${COLORS.primary}15`,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,194,14,0.25)',
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  featureContent: { flex: 1, marginLeft: 12 },
-  featureLabel: { fontSize: 14, fontWeight: '600', color: COLORS.text },
-  featureDesc: { fontSize: 12, color: COLORS.gray, marginTop: 2 },
+  featureContent: { flex: 1 },
+  featureLabel: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
+  },
+  featureDesc: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    marginTop: 2,
+    lineHeight: 18,
+  },
 
-  // Code Card
+  // ============ CODE CARD (active group) ============
   codeCard: {
-    backgroundColor: COLORS.primary,
-    margin: 16,
-    borderRadius: 16,
-    padding: 20,
+    marginHorizontal: s.xl,
+    marginBottom: s.lg,
+    padding: s.xl,
+    borderRadius: radius['2xl'],
+    backgroundColor: colors.primary,
     alignItems: 'center',
+    ...shadows.glow,
   },
-  codeHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  codeLabel: { fontSize: 14, color: COLORS.white, opacity: 0.9 },
-  statusBadge: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
-  statusText: { fontSize: 11, color: COLORS.white, fontWeight: '600' },
-  codeText: { fontSize: 36, fontWeight: '700', color: COLORS.white, letterSpacing: 6 },
+  codeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s.xs,
+    marginBottom: s.sm,
+  },
+  codeEyebrow: {
+    color: colors.onPrimary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+    opacity: 0.7,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.15)',
+    paddingHorizontal: s.xs,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: colors.bg,
+  },
+  statusBadgeText: {
+    color: colors.onPrimary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.black,
+    letterSpacing: tracking.wider,
+  },
+  codeText: {
+    color: colors.onPrimary,
+    fontSize: 40,
+    fontWeight: fontWeight.black,
+    letterSpacing: tracking.wider,
+  },
   shareButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginTop: 16,
-    gap: 8,
+    gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.18)',
+    paddingHorizontal: s.md,
+    paddingVertical: s.xs + 2,
+    borderRadius: radius.pill,
+    marginTop: s.md,
   },
-  shareButtonText: { fontSize: 14, fontWeight: '600', color: COLORS.white },
+  shareButtonText: {
+    color: colors.onPrimary,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.black,
+    letterSpacing: tracking.wider,
+  },
 
-  // Restaurant Section
+  // ============ RESTAURANT SECTION ============
   restaurantSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
-    marginHorizontal: 16,
-    padding: 12,
-    borderRadius: 12,
-    gap: 8,
+    gap: s.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginHorizontal: s.xl,
+    padding: s.md,
+    borderRadius: radius.xl,
   },
-  restaurantSectionName: { fontSize: 15, fontWeight: '600', color: COLORS.text },
+  restaurantSectionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  restaurantSectionEyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+  },
+  restaurantSectionName: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
+    marginTop: 2,
+  },
 
-  // Split Section
-  splitSection: { marginTop: 16, marginHorizontal: 16 },
-  splitTitle: { fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 8 },
-  splitOptions: { flexDirection: 'row', gap: 12 },
+  // ============ SPLIT ============
+  splitSection: {
+    marginHorizontal: s.xl,
+    marginTop: s.lg,
+  },
+  splitEyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+    marginBottom: s.xs,
+  },
+  splitOptions: {
+    flexDirection: 'row',
+    gap: s.xs,
+  },
   splitOption: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.white,
-    padding: 12,
-    borderRadius: 12,
-    gap: 8,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    gap: 6,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: s.sm,
+    borderRadius: radius.xl,
   },
-  splitOptionActive: { borderColor: COLORS.primary },
-  splitOptionText: { fontSize: 12, fontWeight: '600', color: COLORS.gray },
-  splitOptionTextActive: { color: COLORS.primary },
+  splitOptionActive: {
+    backgroundColor: 'rgba(255,194,14,0.08)',
+    borderColor: colors.primary,
+  },
+  splitOptionText: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.heavy,
+  },
+  splitOptionTextActive: { color: colors.primary },
 
-  // Members Section
-  membersSection: { marginTop: 20, marginHorizontal: 16 },
-  membersTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text, marginBottom: 12 },
+  // ============ MEMBERS ============
+  membersSection: {
+    marginHorizontal: s.xl,
+    marginTop: s.lg,
+  },
+  sectionEyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+    marginBottom: s.sm,
+  },
   memberCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8,
+    gap: s.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: s.sm,
+    borderRadius: radius.xl,
+    marginBottom: s.xs,
   },
   memberAvatar: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  memberInitial: { fontSize: 18, fontWeight: '700', color: COLORS.white },
-  memberInfo: { flex: 1, marginLeft: 12 },
-  memberHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  memberName: { fontSize: 15, fontWeight: '600', color: COLORS.text },
+  memberInitial: {
+    color: colors.onPrimary,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.black,
+  },
+  memberInfo: { flex: 1 },
+  memberHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s.xs,
+  },
+  memberName: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
+    flex: 1,
+  },
+  memberHost: {
+    color: colors.primary,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.black,
+    letterSpacing: tracking.wider,
+  },
   readyBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.success,
+    gap: 3,
+    backgroundColor: colors.success,
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 10,
-    gap: 4,
+    borderRadius: radius.pill,
   },
-  readyText: { fontSize: 10, fontWeight: '700', color: COLORS.white },
-  memberItems: { fontSize: 12, color: COLORS.gray, marginTop: 2 },
+  readyText: {
+    color: colors.bg,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.black,
+    letterSpacing: tracking.wider,
+  },
+  memberItems: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    marginTop: 2,
+  },
 
-  // My Items Section
-  myItemsSection: { marginTop: 20, marginHorizontal: 16 },
-  myItemsTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text, marginBottom: 12 },
+  // ============ MY ITEMS ============
+  myItemsSection: {
+    marginHorizontal: s.xl,
+    marginTop: s.lg,
+  },
   itemCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: s.sm,
+    borderRadius: radius.xl,
+    marginBottom: s.xs,
   },
   itemInfo: { flex: 1 },
-  itemName: { fontSize: 14, fontWeight: '600', color: COLORS.text },
-  itemPrice: { fontSize: 12, color: COLORS.gray, marginTop: 2 },
-  itemTotal: { fontSize: 15, fontWeight: '700', color: COLORS.primary },
+  itemName: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
+  },
+  itemPrice: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    marginTop: 2,
+  },
+  itemTotal: {
+    color: colors.primary,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.3,
+  },
 
-  // Add Products Button
+  // ============ ADD PRODUCTS ============
   addProductsButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.white,
-    marginHorizontal: 16,
-    marginTop: 16,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: COLORS.primary,
+    gap: 6,
+    marginHorizontal: s.xl,
+    marginTop: s.md,
+    padding: s.md,
+    borderRadius: radius.xl,
+    backgroundColor: 'rgba(255,194,14,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,194,14,0.4)',
     borderStyle: 'dashed',
-    gap: 8,
   },
-  addProductsText: { fontSize: 14, fontWeight: '600', color: COLORS.primary },
+  addProductsText: {
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.black,
+    letterSpacing: tracking.widest,
+  },
 
-  // Summary Card
+  // ============ SUMMARY ============
   summaryCard: {
-    backgroundColor: COLORS.white,
-    marginHorizontal: 16,
-    marginTop: 20,
-    padding: 16,
-    borderRadius: 12,
+    marginHorizontal: s.xl,
+    marginTop: s.lg,
+    padding: s.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.xl,
   },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  summaryLabel: { fontSize: 14, color: COLORS.gray },
-  summaryValue: { fontSize: 14, fontWeight: '600', color: COLORS.text },
-  summaryValueHighlight: { fontSize: 18, fontWeight: '700', color: COLORS.primary },
-
-  // Bottom Actions
-  bottomActions: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: COLORS.white,
-    padding: 16,
-    paddingBottom: 32,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.lightGray,
+  summaryRow: {
     flexDirection: 'row',
-    gap: 12,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: s.sm,
+  },
+  summaryLabel: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+  },
+  summaryValue: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
+  },
+  summaryValueHighlight: {
+    color: colors.primary,
+    fontSize: fontSize['2xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.5,
+  },
+
+  // ============ FOOTER ============
+  footerActions: {
+    flexDirection: 'row',
+    gap: s.xs,
+    paddingHorizontal: s.xl,
+    paddingTop: s.sm,
+    paddingBottom: s.sm,
+    backgroundColor: colors.bg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   readyButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.white,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    gap: 8,
+    gap: 6,
+    paddingVertical: s.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
   },
-  readyButtonActive: { backgroundColor: COLORS.success, borderColor: COLORS.success },
-  readyButtonText: { fontSize: 14, fontWeight: '700', color: COLORS.primary },
-  readyButtonTextActive: { color: COLORS.white },
-  orderButton: {
-    flex: 1,
-    backgroundColor: COLORS.primary,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
+  readyButtonActive: {
+    backgroundColor: colors.success,
+    borderColor: colors.success,
   },
-  orderButtonDisabled: { backgroundColor: COLORS.lightGray },
-  orderButtonText: { fontSize: 14, fontWeight: '700', color: COLORS.white },
+  readyButtonText: {
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.black,
+    letterSpacing: tracking.widest,
+  },
+  readyButtonTextActive: { color: colors.bg },
 });

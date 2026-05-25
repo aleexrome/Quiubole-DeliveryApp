@@ -1,5 +1,12 @@
 // ==========================================
-// TOAST COMPONENT - NOTIFICACIONES IN-APP
+// DEVOLÓN — <Toast>
+//
+// Toast premium: superficie glass + acento por tipo. Mantiene el feel
+// dark-mode minimalista del branding.
+//   success → verde semántico
+//   error   → rojo
+//   warning → amarillo brand (mensaje importante)
+//   info    → azul info
 // ==========================================
 
 import React, { useEffect, useRef } from 'react';
@@ -9,20 +16,9 @@ import {
   StyleSheet,
   Animated,
   TouchableOpacity,
-  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-
-const { width } = Dimensions.get('window');
-
-const COLORS = {
-  success: '#4CAF50',
-  error: '#F44336',
-  warning: '#FFC107',
-  info: '#2196F3',
-  white: '#FFFFFF',
-  text: '#212529',
-};
+import { colors, s, radius, fontSize, fontWeight, shadows } from '../../theme';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -41,6 +37,13 @@ const TOAST_ICONS: Record<ToastType, keyof typeof Ionicons.glyphMap> = {
   info: 'information-circle',
 };
 
+const TOAST_ACCENT: Record<ToastType, string> = {
+  success: colors.success,
+  error: colors.danger,
+  warning: colors.primary,
+  info: colors.info,
+};
+
 export default function Toast({
   visible,
   type,
@@ -53,61 +56,46 @@ export default function Toast({
 
   useEffect(() => {
     if (visible) {
-      // Show animation
       Animated.parallel([
-        Animated.timing(translateY, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
+        Animated.timing(translateY, { toValue: 0, duration: 280, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 280, useNativeDriver: true }),
       ]).start();
 
-      // Auto hide
-      const timer = setTimeout(() => {
-        hideToast();
-      }, duration);
-
+      const timer = setTimeout(() => hideToast(), duration);
       return () => clearTimeout(timer);
     }
   }, [visible]);
 
   const hideToast = () => {
     Animated.parallel([
-      Animated.timing(translateY, {
-        toValue: -100,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
+      Animated.timing(translateY, { toValue: -100, duration: 240, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 0, duration: 240, useNativeDriver: true }),
     ]).start(() => onHide());
   };
 
   if (!visible) return null;
 
+  const accent = TOAST_ACCENT[type];
+
   return (
     <Animated.View
       style={[
         styles.container,
-        { backgroundColor: COLORS[type] },
-        { transform: [{ translateY }], opacity },
+        { transform: [{ translateY }], opacity, borderColor: accent },
       ]}
     >
+      <View style={[styles.accentBar, { backgroundColor: accent }]} />
       <View style={styles.content}>
-        <Ionicons name={TOAST_ICONS[type]} size={24} color={COLORS.white} />
+        <Ionicons name={TOAST_ICONS[type]} size={22} color={accent} />
         <Text style={styles.message} numberOfLines={2}>
           {message}
         </Text>
-        <TouchableOpacity onPress={hideToast} style={styles.closeButton}>
-          <Ionicons name="close" size={20} color={COLORS.white} />
+        <TouchableOpacity
+          onPress={hideToast}
+          style={styles.closeButton}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="close" size={18} color={colors.textMuted} />
         </TouchableOpacity>
       </View>
     </Animated.View>
@@ -120,28 +108,31 @@ const styles = StyleSheet.create({
     top: 50,
     left: 16,
     right: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    backgroundColor: colors.bgRaised,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    ...shadows.lg,
     zIndex: 9999,
   },
+  accentBar: {
+    width: 4,
+  },
   content: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: s.md,
+    gap: s.sm,
   },
   message: {
     flex: 1,
-    marginLeft: 12,
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.white,
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
   },
   closeButton: {
-    marginLeft: 8,
     padding: 4,
   },
 });

@@ -1,8 +1,18 @@
 // ==========================================
-// PANTALLA DE GESTION DE MENU
+// DEVOLÓN — Restaurant Menu
+//
+// Vista del catálogo desde el lado del DUEÑO del negocio. Roles claros:
+//   • El restaurant SOLO ve productos aprobados por admin.
+//   • El restaurant SOLO puede toggle disponibilidad (isAvailable) — útil
+//     cuando se le acaba un platillo y quiere bajarlo temporalmente.
+//   • El restaurant NO crea, NO edita precio/foto/nombre, NO elimina.
+//   • Todo lo demás lo hace su editor asignado, y admin aprueba.
+//
+// Por eso esta pantalla es de "solo lectura" excepto el switch de
+// disponibilidad. El empty state también es informativo, NO un CTA.
 // ==========================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,429 +22,432 @@ import {
   Image,
   Switch,
   Alert,
-  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { productsApi } from '../../services/api';
 import { Product } from '../../types';
+import { Input, Card, EmptyState } from '../../components/ui';
+import {
+  colors,
+  s,
+  radius,
+  fontSize,
+  fontWeight,
+  tracking,
+} from '../../theme';
 
 export default function RestaurantMenuScreen() {
-  const navigation = useNavigation<any>();
   const [products, setProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
 
-  useEffect(() => {
-    loadProducts();
-  }, []);
-
-  const loadProducts = async () => {
+  const loadProducts = useCallback(async () => {
     try {
-      // Assuming we get products for the restaurant owner
       const data = await productsApi.getByRestaurant('my');
-      setProducts(data);
-
-      // Extract unique categories
-      const uniqueCategories = [...new Set(data.map((p: Product) => p.category))];
-      setCategories(uniqueCategories);
+      // El restaurant SOLO ve productos aprobados. Cualquier producto
+      // en revisión sigue siendo invisible para él (lo trabaja el editor).
+      const approved = (data || []).filter((p: Product) => p.isApproved);
+      setProducts(approved);
+      const uniqueCategories = [
+        ...new Set(approved.map((p: Product) => p.category).filter(Boolean)),
+      ];
+      setCategories(uniqueCategories as string[]);
     } catch (error) {
       console.error('Error loading products:', error);
+      setProducts([]);
     }
-  };
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadProducts();
+    }, [loadProducts]),
+  );
 
   const handleToggleAvailability = async (product: Product) => {
     try {
       await productsApi.toggleAvailability(product.id);
-      setProducts(products.map(p =>
-        p.id === product.id ? { ...p, isAvailable: !p.isAvailable } : p
-      ));
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === product.id ? { ...p, isAvailable: !p.isAvailable } : p,
+        ),
+      );
     } catch (error) {
       Alert.alert('Error', 'No se pudo actualizar la disponibilidad');
     }
   };
 
-  const handleDeleteProduct = (product: Product) => {
-    Alert.alert(
-      'Eliminar Producto',
-      `¿Estas seguro de eliminar "${product.name}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await productsApi.delete(product.id);
-              setProducts(products.filter(p => p.id !== product.id));
-            } catch (error) {
-              Alert.alert('Error', 'No se pudo eliminar el producto');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = !selectedCategory || product.category === selectedCategory;
+  const filteredProducts = products.filter((product) => {
+    const matchesSearch = product.name
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
+    const matchesCategory =
+      !selectedCategory || product.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
-  const formatCurrency = (amount: number) => `$${amount.toFixed(2)}`;
+  const formatCurrency = (amount: number | string | undefined | null) => {
+    const n = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return `$${(n ?? 0).toFixed(2)}`;
+  };
 
   const renderProduct = ({ item: product }: { item: Product }) => (
-    <View style={styles.productCard}>
-      <Image
-        source={{ uri: product.image || 'https://via.placeholder.com/100' }}
-        style={styles.productImage}
-      />
-      <View style={styles.productInfo}>
-        <View style={styles.productHeader}>
-          <Text style={styles.productName} numberOfLines={1}>{product.name}</Text>
-          {!product.isApproved && (
-            <View style={styles.pendingBadge}>
-              <Text style={styles.pendingText}>Pendiente</Text>
-            </View>
+    <Card
+      variant="glass"
+      padding={s.sm}
+      borderRadius={radius.xl}
+      style={styles.productCard}
+    >
+      <View style={styles.productMain}>
+        <Image
+          source={{ uri: product.image || 'https://via.placeholder.com/100' }}
+          style={styles.productImage}
+        />
+        <View style={styles.productInfo}>
+          <Text style={styles.productName} numberOfLines={1}>
+            {product.name}
+          </Text>
+          {product.category && (
+            <Text style={styles.productCategory} numberOfLines={1}>
+              {product.category}
+            </Text>
           )}
-        </View>
-        <Text style={styles.productCategory}>{product.category}</Text>
-        <View style={styles.priceRow}>
-          <Text style={styles.productPrice}>{formatCurrency(product.price)}</Text>
-          {product.originalPrice && product.originalPrice > product.price && (
-            <Text style={styles.originalPrice}>{formatCurrency(product.originalPrice)}</Text>
-          )}
+          <View style={styles.priceRow}>
+            <Text style={styles.productPrice}>
+              {formatCurrency(product.price)}
+            </Text>
+            {product.originalPrice &&
+              product.originalPrice > product.price && (
+                <Text style={styles.originalPrice}>
+                  {formatCurrency(product.originalPrice)}
+                </Text>
+              )}
+          </View>
         </View>
       </View>
-      <View style={styles.productActions}>
-        <View style={styles.availabilityToggle}>
-          <Text style={styles.availabilityText}>
-            {product.isAvailable ? 'Disponible' : 'Agotado'}
-          </Text>
+
+      {/* Único control del dueño: toggle de disponibilidad. NO hay
+          editar / eliminar — eso es responsabilidad del editor. */}
+      <View style={styles.productFooter}>
+        <View style={styles.availabilityRow}>
           <Switch
             value={product.isAvailable}
             onValueChange={() => handleToggleAvailability(product)}
-            trackColor={{ false: '#E5E5E5', true: '#22C55E' }}
-            thumbColor="#fff"
+            trackColor={{ false: colors.border, true: colors.primary }}
+            thumbColor={colors.text}
           />
+          <Text
+            style={[
+              styles.availabilityText,
+              {
+                color: product.isAvailable ? colors.success : colors.textMuted,
+              },
+            ]}
+          >
+            {product.isAvailable ? 'Disponible' : 'Agotado'}
+          </Text>
         </View>
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={styles.editBtn}
-            onPress={() => navigation.navigate('ProductEdit', { productId: product.id })}
-          >
-            <Ionicons name="pencil" size={18} color="#FF6B35" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.deleteBtn}
-            onPress={() => handleDeleteProduct(product)}
-          >
-            <Ionicons name="trash" size={18} color="#EF4444" />
-          </TouchableOpacity>
+        <View style={styles.lockedHint}>
+          <Ionicons name="lock-closed" size={11} color={colors.textFaint} />
+          <Text style={styles.lockedHintText}>
+            Edita con tu editor
+          </Text>
         </View>
       </View>
-    </View>
+    </Card>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* ============ HEADER (sin botón +) ============ */}
       <View style={styles.header}>
-        <Text style={styles.title}>Mi Menu</Text>
-        <TouchableOpacity
-          style={styles.addBtn}
-          onPress={() => navigation.navigate('ProductEdit', { productId: null })}
-        >
-          <Ionicons name="add" size={24} color="#fff" />
-        </TouchableOpacity>
+        <Text style={styles.eyebrow}>DEVOLÓN · CATÁLOGO</Text>
+        <Text style={styles.title}>Mi menú</Text>
       </View>
 
-      {/* Search */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#666" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Buscar productos..."
+      {/* ============ SEARCH ============ */}
+      <View style={styles.searchWrap}>
+        <Input
+          variant="filled"
+          icon="search"
+          placeholder="Buscar productos…"
           value={searchQuery}
           onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={20} color="#666" />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Categories Filter */}
-      <View style={styles.categoriesContainer}>
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={['Todos', ...categories]}
-          keyExtractor={(item) => item}
-          contentContainerStyle={styles.categoriesList}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.categoryChip,
-                (item === 'Todos' ? !selectedCategory : selectedCategory === item) &&
-                  styles.categoryChipActive
-              ]}
-              onPress={() => setSelectedCategory(item === 'Todos' ? null : item)}
-            >
-              <Text style={[
-                styles.categoryChipText,
-                (item === 'Todos' ? !selectedCategory : selectedCategory === item) &&
-                  styles.categoryChipTextActive
-              ]}>
-                {item}
-              </Text>
-            </TouchableOpacity>
-          )}
+          rightIcon={searchQuery ? 'close-circle' : undefined}
+          onRightIconPress={() => setSearchQuery('')}
         />
       </View>
 
-      {/* Products count */}
-      <View style={styles.countContainer}>
-        <Text style={styles.countText}>
-          {filteredProducts.length} productos
-        </Text>
-      </View>
+      {/* ============ CATEGORIES ============ */}
+      {categories.length > 0 && (
+        <View style={styles.categoriesContainer}>
+          <FlatList
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            data={['Todos', ...categories]}
+            keyExtractor={(item) => item}
+            contentContainerStyle={styles.categoriesList}
+            renderItem={({ item }) => {
+              const active =
+                item === 'Todos'
+                  ? !selectedCategory
+                  : selectedCategory === item;
+              return (
+                <TouchableOpacity
+                  style={[
+                    styles.categoryChip,
+                    active && styles.categoryChipActive,
+                  ]}
+                  onPress={() =>
+                    setSelectedCategory(item === 'Todos' ? null : item)
+                  }
+                  activeOpacity={0.85}
+                >
+                  <Text
+                    style={[
+                      styles.categoryChipText,
+                      active && styles.categoryChipTextActive,
+                    ]}
+                  >
+                    {item}
+                  </Text>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        </View>
+      )}
 
-      {/* Products List */}
+      {/* ============ COUNT ============ */}
+      {filteredProducts.length > 0 && (
+        <View style={styles.countContainer}>
+          <Text style={styles.countText}>
+            {filteredProducts.length} producto
+            {filteredProducts.length === 1 ? '' : 's'} aprobado
+            {filteredProducts.length === 1 ? '' : 's'}
+          </Text>
+        </View>
+      )}
+
+      {/* ============ PRODUCTS ============ */}
       <FlatList
         data={filteredProducts}
         renderItem={renderProduct}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="restaurant-outline" size={64} color="#E5E5E5" />
-            <Text style={styles.emptyText}>No hay productos</Text>
-            <TouchableOpacity
-              style={styles.addFirstBtn}
-              onPress={() => navigation.navigate('ProductEdit', { productId: null })}
+          <EmptyState
+            icon="restaurant-outline"
+            title="Tu carta está en preparación"
+            subtitle="Tu editor está cargando los productos. Te avisaremos cuando tu menú esté listo para recibir pedidos."
+          />
+        }
+        ListFooterComponent={
+          filteredProducts.length > 0 ? (
+            <Card
+              variant="glass"
+              padding={s.md}
+              borderRadius={radius.lg}
+              style={styles.infoBanner}
             >
-              <Text style={styles.addFirstBtnText}>Agregar primer producto</Text>
-            </TouchableOpacity>
-          </View>
+              <View style={styles.infoHalo}>
+                <Ionicons
+                  name="information-circle"
+                  size={16}
+                  color={colors.primary}
+                />
+              </View>
+              <Text style={styles.infoText}>
+                Para cambiar precios, fotos o agregar productos nuevos, contacta
+                a tu editor desde el chat.
+              </Text>
+            </Card>
+          ) : null
         }
       />
-
-      {/* Info Banner */}
-      <View style={styles.infoBanner}>
-        <Ionicons name="information-circle" size={20} color="#FF6B35" />
-        <Text style={styles.infoText}>
-          Los productos nuevos deben ser aprobados por el administrador antes de aparecer en la app
-        </Text>
-      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
+  container: { flex: 1, backgroundColor: colors.bg },
+
+  // ============ HEADER ============
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
+    paddingHorizontal: s.xl,
+    paddingTop: s.sm,
+    paddingBottom: s.md,
+  },
+  eyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0F172A',
+    color: colors.text,
+    fontSize: fontSize['3xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.6,
+    marginTop: 2,
   },
-  addBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FF6B35',
-    alignItems: 'center',
-    justifyContent: 'center',
+
+  // ============ SEARCH ============
+  searchWrap: {
+    paddingHorizontal: s.xl,
+    paddingBottom: s.sm,
   },
-  searchContainer: {
+
+  // ============ CATEGORIES ============
+  categoriesContainer: { paddingTop: s.xs },
+  categoriesList: { paddingHorizontal: s.xl, gap: s.xs },
+  categoryChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginTop: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-  },
-  searchInput: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    fontSize: 16,
-  },
-  categoriesContainer: {
-    marginTop: 12,
-  },
-  categoriesList: {
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  categoryChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#fff',
-    marginRight: 8,
+    paddingHorizontal: s.md,
+    height: 36,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginRight: s.xs,
   },
   categoryChipActive: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    borderColor: colors.primary,
   },
   categoryChipText: {
-    fontSize: 14,
-    color: '#666',
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.3,
   },
-  categoryChipTextActive: {
-    color: '#fff',
-    fontWeight: '600',
-  },
+  categoryChipTextActive: { color: colors.primary },
+
+  // ============ COUNT ============
   countContainer: {
-    padding: 16,
+    paddingHorizontal: s.xl,
+    paddingTop: s.sm,
+    paddingBottom: s.sm,
   },
   countText: {
-    fontSize: 14,
-    color: '#666',
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.3,
   },
+
+  // ============ LIST ============
   list: {
-    paddingHorizontal: 16,
+    paddingHorizontal: s.xl,
+    paddingBottom: s['4xl'],
+    flexGrow: 1,
   },
-  productCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+
+  // ============ PRODUCT CARD ============
+  productCard: { marginBottom: s.sm },
+  productMain: {
     flexDirection: 'row',
+    gap: s.sm,
   },
   productImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    backgroundColor: '#F5F5F5',
+    width: 76,
+    height: 76,
+    borderRadius: radius.md,
+    backgroundColor: colors.bgRaised,
   },
-  productInfo: {
-    flex: 1,
-    marginLeft: 12,
-    justifyContent: 'center',
-  },
-  productHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
+  productInfo: { flex: 1, justifyContent: 'center' },
   productName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0F172A',
-    flex: 1,
-  },
-  pendingBadge: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  pendingText: {
-    fontSize: 10,
-    color: '#D97706',
-    fontWeight: '600',
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
   },
   productCategory: {
-    fontSize: 12,
-    color: '#666',
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
+    textTransform: 'uppercase',
     marginTop: 4,
   },
   priceRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
+    gap: s.xs,
     marginTop: 4,
-    gap: 8,
   },
   productPrice: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#22C55E',
+    color: colors.text,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.2,
   },
   originalPrice: {
-    fontSize: 14,
-    color: '#999',
+    color: colors.textFaint,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
     textDecorationLine: 'line-through',
   },
-  productActions: {
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-  },
-  availabilityToggle: {
+
+  // ============ PRODUCT FOOTER ============
+  productFooter: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: s.sm,
+    paddingTop: s.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  availabilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s.xs,
   },
   availabilityText: {
-    fontSize: 10,
-    color: '#666',
-    marginBottom: 4,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.3,
   },
-  actionButtons: {
+  lockedHint: {
     flexDirection: 'row',
-    gap: 8,
-  },
-  editBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: '#FFF5F0',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 4,
   },
-  deleteBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: '#FEF2F2',
-    alignItems: 'center',
-    justifyContent: 'center',
+  lockedHintText: {
+    color: colors.textFaint,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
+    textTransform: 'uppercase',
   },
-  empty: {
-    alignItems: 'center',
-    paddingVertical: 64,
-  },
-  emptyText: {
-    color: '#666',
-    marginTop: 12,
-    fontSize: 16,
-  },
-  addFirstBtn: {
-    marginTop: 16,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    backgroundColor: '#FF6B35',
-    borderRadius: 8,
-  },
-  addFirstBtnText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
+
+  // ============ INFO BANNER ============
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF5F0',
-    margin: 16,
-    padding: 12,
-    borderRadius: 8,
-    gap: 8,
+    gap: s.sm,
+    marginTop: s.lg,
+  },
+  infoHalo: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,194,14,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   infoText: {
     flex: 1,
-    fontSize: 12,
-    color: '#666',
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
+    lineHeight: 16,
   },
 });

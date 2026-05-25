@@ -1,5 +1,8 @@
 // ==========================================
-// PANTALLA DE VERIFICACION DE EMAIL
+// DEVOLÓN — Verify Email
+//
+// Inputs OTP de 6 dígitos en dark mode. Cada celda es un box glass que
+// se ilumina amarillo al llenarse. Countdown sutil para reenvío.
 // ==========================================
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -9,12 +12,12 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
+import { Screen, Header, Button, Card } from '../../components/ui';
+import { colors, s, radius, fontSize, fontWeight, tracking } from '../../theme';
 
 export default function VerifyEmailScreen() {
   const { user, verifyEmail, resendVerificationCode, isLoading, logout } = useAuthStore();
@@ -24,7 +27,6 @@ export default function VerifyEmailScreen() {
   const [canResend, setCanResend] = useState(false);
   const inputRefs = useRef<(TextInput | null)[]>([]);
 
-  // Countdown timer
   useEffect(() => {
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
@@ -34,10 +36,8 @@ export default function VerifyEmailScreen() {
     }
   }, [countdown]);
 
-  // Manejar cambio en inputs de codigo
   const handleCodeChange = (value: string, index: number) => {
     if (value.length > 1) {
-      // Si pegan un codigo completo
       const pastedCode = value.slice(0, 6).split('');
       const newCode = [...code];
       pastedCode.forEach((char, i) => {
@@ -47,103 +47,87 @@ export default function VerifyEmailScreen() {
       inputRefs.current[5]?.focus();
       return;
     }
-
     const newCode = [...code];
     newCode[index] = value;
     setCode(newCode);
-
-    // Auto-focus siguiente input
-    if (value && index < 5) {
-      inputRefs.current[index + 1]?.focus();
-    }
+    if (value && index < 5) inputRefs.current[index + 1]?.focus();
   };
 
-  // Manejar backspace
   const handleKeyPress = (e: any, index: number) => {
     if (e.nativeEvent.key === 'Backspace' && !code[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
   };
 
-  // Verificar codigo
   const handleVerify = async () => {
     const fullCode = code.join('');
     if (fullCode.length !== 6) {
-      Alert.alert('Error', 'Ingresa el codigo completo de 6 digitos');
+      Alert.alert('Código incompleto', 'Ingresa los 6 dígitos.');
       return;
     }
-
     const success = await verifyEmail(fullCode);
-    if (success) {
-      Alert.alert('Exito', 'Tu email ha sido verificado');
-    } else {
-      Alert.alert('Error', 'Codigo invalido o expirado');
-    }
+    if (success) Alert.alert('Verificado', 'Tu correo fue verificado correctamente.');
+    else Alert.alert('Código inválido', 'Revisa el código o solicita uno nuevo.');
   };
 
-  // Reenviar codigo
   const handleResend = async () => {
     try {
       await resendVerificationCode();
       setCountdown(60);
       setCanResend(false);
       setCode(['', '', '', '', '', '']);
-      Alert.alert('Enviado', 'Hemos enviado un nuevo codigo a tu email');
+      Alert.alert('Enviado', 'Te enviamos un nuevo código.');
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'No se pudo reenviar el codigo');
+      Alert.alert('Error', e.message || 'No pudimos reenviar el código.');
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen>
+      <Header title="" showBack={false} />
       <View style={styles.content}>
-        {/* Icon */}
-        <View style={styles.iconContainer}>
-          <Ionicons name="mail-open" size={64} color="#FF6B35" />
+        <View style={styles.iconHalo}>
+          <Ionicons name="mail-open-outline" size={48} color={colors.primary} />
         </View>
 
-        {/* Title */}
-        <Text style={styles.title}>Verifica tu Email</Text>
-        <Text style={styles.subtitle}>
-          Enviamos un codigo de 6 digitos a{'\n'}
-          <Text style={styles.email}>{user?.email}</Text>
-        </Text>
+        <Text style={styles.eyebrow}>VERIFICACIÓN</Text>
+        <Text style={styles.title}>Verifica tu correo</Text>
+        <Text style={styles.subtitle}>Enviamos un código de 6 dígitos a</Text>
+        <Text style={styles.email}>{user?.email}</Text>
 
-        {/* Code Input */}
-        <View style={styles.codeContainer}>
+        <View style={styles.codeRow}>
           {code.map((digit, index) => (
             <TextInput
               key={index}
-              ref={(ref) => (inputRefs.current[index] = ref)}
-              style={[styles.codeInput, digit && styles.codeInputFilled]}
+              ref={(ref) => {
+                inputRefs.current[index] = ref;
+              }}
+              style={[styles.codeInput, digit ? styles.codeInputFilled : null]}
               value={digit}
               onChangeText={(value) => handleCodeChange(value, index)}
               onKeyPress={(e) => handleKeyPress(e, index)}
               keyboardType="number-pad"
               maxLength={1}
+              selectionColor={colors.primary}
               selectTextOnFocus
             />
           ))}
         </View>
 
-        {/* Verify Button */}
-        <TouchableOpacity
-          style={[styles.button, isLoading && styles.buttonDisabled]}
-          onPress={handleVerify}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Verificar</Text>
-          )}
-        </TouchableOpacity>
+        <View style={styles.actionWrap}>
+          <Button
+            label="VERIFICAR"
+            icon="checkmark"
+            iconPosition="right"
+            onPress={handleVerify}
+            loading={isLoading}
+          />
+        </View>
 
-        {/* Resend */}
-        <View style={styles.resendContainer}>
-          <Text style={styles.resendText}>¿No recibiste el codigo? </Text>
+        <View style={styles.resendRow}>
+          <Text style={styles.resendLead}>¿No recibiste el código?</Text>
           {canResend ? (
-            <TouchableOpacity onPress={handleResend}>
+            <TouchableOpacity onPress={handleResend} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Text style={styles.resendLink}>Reenviar</Text>
             </TouchableOpacity>
           ) : (
@@ -151,133 +135,142 @@ export default function VerifyEmailScreen() {
           )}
         </View>
 
-        {/* Check spam */}
-        <View style={styles.spamContainer}>
-          <Ionicons name="information-circle-outline" size={20} color="#666" />
-          <Text style={styles.spamText}>
-            Si no lo ves, revisa tu carpeta de spam o correo no deseado
-          </Text>
-        </View>
+        <Card variant="glass" padding={s.md} style={styles.spamCard}>
+          <View style={styles.spamInner}>
+            <Ionicons name="information-circle-outline" size={18} color={colors.textMuted} />
+            <Text style={styles.spamText}>
+              Si no lo ves, revisa tu carpeta de spam.
+            </Text>
+          </View>
+        </Card>
 
-        {/* Change email */}
-        <TouchableOpacity style={styles.changeEmail} onPress={logout}>
-          <Text style={styles.changeEmailText}>Usar otro correo</Text>
+        <TouchableOpacity onPress={logout} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Text style={styles.changeEmail}>Usar otro correo</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
-    justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: s.lg,
+    paddingTop: s.lg,
   },
-  iconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#FFF5F0',
+  iconHalo: {
+    width: 104,
+    height: 104,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,194,14,0.4)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 32,
+    marginBottom: s.xl,
+  },
+  eyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+    textTransform: 'uppercase',
+    marginBottom: s.sm,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#0F172A',
-    marginBottom: 12,
+    color: colors.text,
+    fontSize: fontSize['3xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.6,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666',
+    color: colors.textMuted,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.medium,
     textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 32,
+    marginTop: s.xs,
   },
   email: {
-    color: '#FF6B35',
-    fontWeight: '600',
+    color: colors.primary,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.4,
+    marginTop: 2,
   },
-  codeContainer: {
+
+  codeRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 32,
+    gap: s.xs + 2,
+    marginTop: s['2xl'],
+    marginBottom: s.xl,
   },
   codeInput: {
     width: 48,
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: '#F5F5F5',
-    fontSize: 24,
-    fontWeight: 'bold',
+    height: 60,
+    borderRadius: radius.lg,
+    backgroundColor: colors.inputBg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    fontSize: fontSize['2xl'],
+    fontWeight: fontWeight.black,
     textAlign: 'center',
-    color: '#0F172A',
+    color: colors.text,
   },
   codeInputFilled: {
-    backgroundColor: '#FFF5F0',
-    borderWidth: 2,
-    borderColor: '#FF6B35',
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(255,194,14,0.06)',
   },
-  button: {
-    backgroundColor: '#FF6B35',
-    paddingVertical: 16,
-    paddingHorizontal: 64,
-    borderRadius: 12,
-    alignItems: 'center',
+
+  actionWrap: {
     width: '100%',
   },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  resendContainer: {
-    flexDirection: 'row',
-    marginTop: 24,
-  },
-  resendText: {
-    color: '#666',
-    fontSize: 14,
-  },
-  resendLink: {
-    color: '#FF6B35',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  countdown: {
-    color: '#999',
-    fontSize: 14,
-  },
-  spamContainer: {
+  resendRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 32,
+    gap: s.xs,
+    marginTop: s.xl,
+  },
+  resendLead: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+  },
+  resendLink: {
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.3,
+  },
+  countdown: {
+    color: colors.textFaint,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+  },
+
+  spamCard: {
+    marginTop: s.xl,
+    width: '100%',
+  },
+  spamInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s.xs,
   },
   spamText: {
-    color: '#666',
-    fontSize: 12,
-    marginLeft: 8,
     flex: 1,
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
   },
+
   changeEmail: {
-    marginTop: 24,
-  },
-  changeEmailText: {
-    color: '#FF6B35',
-    fontSize: 14,
-    fontWeight: '600',
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.3,
+    marginTop: s.xl,
+    textDecorationLine: 'underline',
   },
 });

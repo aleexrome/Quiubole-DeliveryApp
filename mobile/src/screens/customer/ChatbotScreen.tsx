@@ -1,5 +1,9 @@
 // ==========================================
-// CHATBOT SCREEN - Asistente de Recomendaciones
+// DEVOLÓN — ChatbotScreen
+//
+// Asistente IA "Devo". Layout dark con header sticky (avatar amarillo +
+// status online), feed de burbujas (usuario amarillo, bot glass) y
+// composer inferior tipo input filled. Quick suggestions en pills glass.
 // ==========================================
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -15,21 +19,18 @@ import {
   ActivityIndicator,
   Animated,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../services/api';
-
-// Colores de Quiubole
-const COLORS = {
-  primary: '#FF6B35',
-  secondary: '#2E4057',
-  success: '#4CAF50',
-  background: '#F8F9FA',
-  white: '#FFFFFF',
-  gray: '#6C757D',
-  lightGray: '#E9ECEF',
-  text: '#212529',
-  textLight: '#6C757D',
-};
+import {
+  colors,
+  s,
+  radius,
+  shadows,
+  fontSize,
+  fontWeight,
+  tracking,
+} from '../../theme';
 
 interface Message {
   id: string;
@@ -55,7 +56,8 @@ export default function ChatbotScreen({ navigation }: ChatbotScreenProps) {
     {
       id: '1',
       role: 'assistant',
-      content: '¡Hola! 👋 Soy Quiu, tu asistente de Quiúbole.\n\n¿Qué se te antoja hoy? Puedo ayudarte a encontrar el lugar perfecto para comer.',
+      content:
+        'Soy Devo, tu asistente Devolón.\n\n¿Qué se te antoja hoy? Te ayudo a encontrar el lugar perfecto.',
       timestamp: new Date(),
     },
   ]);
@@ -65,14 +67,13 @@ export default function ChatbotScreen({ navigation }: ChatbotScreenProps) {
   const inputRef = useRef<TextInput>(null);
   const typingAnimation = useRef(new Animated.Value(0)).current;
 
-  // Sugerencias rápidas
   const quickSuggestions = [
-    '🌶️ Algo picante',
-    '💰 Económico',
-    '🍕 Pizza',
-    '🌮 Tacos',
-    '🍔 Hamburguesa',
-    '🥗 Saludable',
+    'Algo picante',
+    'Económico',
+    'Pizza',
+    'Tacos',
+    'Hamburguesa',
+    'Saludable',
   ];
 
   useEffect(() => {
@@ -85,7 +86,7 @@ export default function ChatbotScreen({ navigation }: ChatbotScreenProps) {
             useNativeDriver: true,
           }),
           Animated.timing(typingAnimation, {
-            toValue: 0,
+            toValue: 0.3,
             duration: 500,
             useNativeDriver: true,
           }),
@@ -111,13 +112,11 @@ export default function ChatbotScreen({ navigation }: ChatbotScreenProps) {
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
 
-    // Scroll al final
     setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: true });
     }, 100);
 
     try {
-      // Preparar historial de conversación (últimos 10 mensajes)
       const conversationHistory = messages.slice(-10).map((m) => ({
         role: m.role,
         content: m.content,
@@ -140,11 +139,10 @@ export default function ChatbotScreen({ navigation }: ChatbotScreenProps) {
     } catch (error) {
       console.error('Error sending message:', error);
 
-      // Mensaje de error amigable
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Ups, tuve un problema. ¿Podrías intentar de nuevo? 🙏',
+        content: 'Tuve un problema al procesar tu mensaje. ¿Intentamos de nuevo?',
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -164,50 +162,45 @@ export default function ChatbotScreen({ navigation }: ChatbotScreenProps) {
     const isUser = item.role === 'user';
 
     return (
-      <View style={styles.messageContainer}>
-        {/* Avatar */}
+      <View style={[styles.messageRow, isUser && styles.messageRowUser]}>
         {!isUser && (
-          <View style={styles.avatarContainer}>
-            <View style={styles.botAvatar}>
-              <Text style={styles.botAvatarText}>Q</Text>
-            </View>
+          <View style={styles.botAvatar}>
+            <Ionicons name="sparkles" size={14} color={colors.onPrimary} />
           </View>
         )}
 
         <View
           style={[
-            styles.messageBubble,
+            styles.bubble,
             isUser ? styles.userBubble : styles.assistantBubble,
           ]}
         >
           <Text
             style={[
-              styles.messageText,
-              isUser ? styles.userMessageText : styles.assistantMessageText,
+              styles.bubbleText,
+              isUser ? styles.userBubbleText : styles.assistantBubbleText,
             ]}
           >
             {item.content}
           </Text>
 
-          {/* Recomendaciones de restaurantes */}
           {item.recommendations?.restaurants && item.recommendations.restaurants.length > 0 && (
-            <View style={styles.recommendationsContainer}>
+            <View style={styles.recommendations}>
               {item.recommendations.restaurants.map((restaurant, index) => (
                 <TouchableOpacity
                   key={restaurant.id}
-                  style={styles.restaurantCard}
+                  activeOpacity={0.88}
+                  style={styles.recCard}
                   onPress={() => handleRestaurantPress(restaurant.id, restaurant.name)}
                 >
-                  <View style={styles.restaurantInfo}>
-                    <View style={styles.restaurantNumber}>
-                      <Text style={styles.restaurantNumberText}>{index + 1}</Text>
-                    </View>
-                    <View style={styles.restaurantDetails}>
-                      <Text style={styles.restaurantName}>{restaurant.name}</Text>
-                      <Text style={styles.restaurantReason}>{restaurant.reason}</Text>
-                    </View>
+                  <View style={styles.recBadge}>
+                    <Text style={styles.recBadgeText}>{index + 1}</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+                  <View style={styles.recBody}>
+                    <Text style={styles.recName} numberOfLines={1}>{restaurant.name}</Text>
+                    <Text style={styles.recReason} numberOfLines={2}>{restaurant.reason}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
                 </TouchableOpacity>
               ))}
             </View>
@@ -217,8 +210,6 @@ export default function ChatbotScreen({ navigation }: ChatbotScreenProps) {
             {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </Text>
         </View>
-
-        {isUser && <View style={styles.avatarContainer} />}
       </View>
     );
   };
@@ -227,15 +218,13 @@ export default function ChatbotScreen({ navigation }: ChatbotScreenProps) {
     if (!isLoading) return null;
 
     return (
-      <View style={styles.messageContainer}>
-        <View style={styles.avatarContainer}>
-          <View style={styles.botAvatar}>
-            <Text style={styles.botAvatarText}>Q</Text>
-          </View>
+      <View style={styles.messageRow}>
+        <View style={styles.botAvatar}>
+          <Ionicons name="sparkles" size={14} color={colors.onPrimary} />
         </View>
-        <View style={[styles.messageBubble, styles.assistantBubble, styles.typingBubble]}>
+        <View style={[styles.bubble, styles.assistantBubble, styles.typingBubble]}>
           <Animated.View style={{ opacity: typingAnimation }}>
-            <Text style={styles.typingText}>Quiu está escribiendo...</Text>
+            <Text style={styles.typingText}>Devo está pensando…</Text>
           </Animated.View>
         </View>
       </View>
@@ -243,299 +232,369 @@ export default function ChatbotScreen({ navigation }: ChatbotScreenProps) {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={90}
-    >
-      {/* Header */}
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      {/* HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={styles.iconBtn}
+        >
+          <Ionicons name="chevron-back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <View style={styles.headerTitle}>
+
+        <View style={styles.headerIdentity}>
           <View style={styles.headerAvatar}>
-            <Text style={styles.headerAvatarText}>Q</Text>
+            <Ionicons name="sparkles" size={18} color={colors.onPrimary} />
           </View>
-          <View>
-            <Text style={styles.headerName}>Quiu</Text>
-            <Text style={styles.headerSubtitle}>Tu asistente de comida</Text>
+          <View style={styles.headerTitleBlock}>
+            <Text style={styles.headerEyebrow}>ASISTENTE IA</Text>
+            <View style={styles.headerStatusRow}>
+              <Text style={styles.headerName}>Devo</Text>
+              <View style={styles.statusDot} />
+              <Text style={styles.statusText}>En línea</Text>
+            </View>
           </View>
         </View>
+
         <View style={{ width: 40 }} />
       </View>
 
-      {/* Messages */}
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        renderItem={renderMessage}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.messagesList}
-        showsVerticalScrollIndicator={false}
-        ListFooterComponent={renderTypingIndicator}
-      />
-
-      {/* Quick Suggestions */}
-      {messages.length <= 2 && (
-        <View style={styles.suggestionsContainer}>
-          <FlatList
-            horizontal
-            data={quickSuggestions}
-            keyExtractor={(item) => item}
-            showsHorizontalScrollIndicator={false}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.suggestionChip}
-                onPress={() => sendMessage(item)}
-              >
-                <Text style={styles.suggestionText}>{item}</Text>
-              </TouchableOpacity>
-            )}
-            contentContainerStyle={styles.suggestionsList}
-          />
-        </View>
-      )}
-
-      {/* Input */}
-      <View style={styles.inputContainer}>
-        <TextInput
-          ref={inputRef}
-          style={styles.input}
-          placeholder="Escribe qué se te antoja..."
-          placeholderTextColor={COLORS.gray}
-          value={inputText}
-          onChangeText={setInputText}
-          multiline
-          maxLength={500}
-          onSubmitEditing={() => sendMessage()}
-          returnKeyType="send"
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          renderItem={renderMessage}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.messagesList}
+          showsVerticalScrollIndicator={false}
+          ListFooterComponent={renderTypingIndicator}
         />
-        <TouchableOpacity
-          style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
-          onPress={() => sendMessage()}
-          disabled={!inputText.trim() || isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator size="small" color={COLORS.white} />
-          ) : (
-            <Ionicons name="send" size={20} color={COLORS.white} />
-          )}
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+
+        {/* QUICK SUGGESTIONS */}
+        {messages.length <= 2 && (
+          <View style={styles.suggestionsWrap}>
+            <Text style={styles.suggestionsEyebrow}>SUGERENCIAS</Text>
+            <FlatList
+              horizontal
+              data={quickSuggestions}
+              keyExtractor={(item) => item}
+              showsHorizontalScrollIndicator={false}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={styles.suggestionChip}
+                  onPress={() => sendMessage(item)}
+                >
+                  <Text style={styles.suggestionText}>{item}</Text>
+                </TouchableOpacity>
+              )}
+              contentContainerStyle={styles.suggestionsList}
+            />
+          </View>
+        )}
+
+        {/* COMPOSER */}
+        <View style={styles.composer}>
+          <View style={styles.inputField}>
+            <TextInput
+              ref={inputRef}
+              style={styles.input}
+              placeholder="Escribe qué se te antoja…"
+              placeholderTextColor={colors.textFaint}
+              value={inputText}
+              onChangeText={setInputText}
+              multiline
+              maxLength={500}
+              onSubmitEditing={() => sendMessage()}
+              returnKeyType="send"
+              selectionColor={colors.primary}
+            />
+          </View>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
+            onPress={() => sendMessage()}
+            disabled={!inputText.trim() || isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color={colors.onPrimary} />
+            ) : (
+              <Ionicons name="arrow-up" size={20} color={colors.onPrimary} />
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
+  container: { flex: 1, backgroundColor: colors.bg },
+  flex: { flex: 1 },
+
+  // ============ HEADER ============
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: COLORS.white,
+    paddingHorizontal: s.md,
+    paddingVertical: s.xs,
+    backgroundColor: colors.bg,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
+    borderBottomColor: colors.border,
   },
-  backButton: {
-    padding: 8,
+  iconBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  headerTitle: {
+  headerIdentity: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: s.sm,
   },
   headerAvatar: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
     alignItems: 'center',
-    marginRight: 12,
+    justifyContent: 'center',
+    ...shadows.glow,
   },
-  headerAvatarText: {
-    color: COLORS.white,
-    fontSize: 18,
-    fontWeight: 'bold',
+  headerTitleBlock: { flex: 1 },
+  headerEyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+  },
+  headerStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
   },
   headerName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
+    color: colors.text,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.3,
   },
-  headerSubtitle: {
-    fontSize: 12,
-    color: COLORS.textLight,
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: colors.success,
+    marginLeft: 4,
   },
+  statusText: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+  },
+
+  // ============ MESSAGES ============
   messagesList: {
-    padding: 16,
-    paddingBottom: 8,
+    padding: s.md,
+    paddingBottom: s.xs,
+    gap: s.sm,
   },
-  messageContainer: {
+  messageRow: {
     flexDirection: 'row',
-    marginBottom: 12,
+    alignItems: 'flex-end',
+    gap: s.xs,
+    maxWidth: '100%',
   },
-  avatarContainer: {
-    width: 32,
-    marginRight: 8,
+  messageRowUser: {
+    justifyContent: 'flex-end',
   },
   botAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
+    width: 28,
+    height: 28,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  botAvatarText: {
-    color: COLORS.white,
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  messageBubble: {
-    maxWidth: '75%',
-    padding: 12,
-    borderRadius: 16,
+  bubble: {
+    maxWidth: '78%',
+    paddingHorizontal: s.md,
+    paddingVertical: s.sm,
+    borderRadius: radius.xl,
   },
   userBubble: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderBottomRightRadius: 4,
-    marginLeft: 'auto',
   },
   assistantBubble: {
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderBottomLeftRadius: 4,
   },
   typingBubble: {
-    paddingVertical: 16,
+    paddingVertical: s.md,
   },
-  messageText: {
-    fontSize: 15,
+  bubbleText: {
+    fontSize: fontSize.md,
     lineHeight: 20,
+    fontWeight: fontWeight.medium,
   },
-  userMessageText: {
-    color: COLORS.white,
+  userBubbleText: {
+    color: colors.onPrimary,
+    fontWeight: fontWeight.semibold,
   },
-  assistantMessageText: {
-    color: COLORS.text,
+  assistantBubbleText: {
+    color: colors.text,
   },
   timestamp: {
-    fontSize: 10,
-    color: COLORS.textLight,
+    fontSize: fontSize.xxs,
+    color: colors.textFaint,
+    fontWeight: fontWeight.semibold,
     marginTop: 4,
     alignSelf: 'flex-end',
   },
   userTimestamp: {
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(0,0,0,0.55)',
   },
   typingText: {
-    fontSize: 14,
-    color: COLORS.textLight,
+    fontSize: fontSize.sm,
+    color: colors.textMuted,
+    fontWeight: fontWeight.semibold,
     fontStyle: 'italic',
   },
-  recommendationsContainer: {
-    marginTop: 12,
+
+  // ============ RECOMMENDATIONS ============
+  recommendations: {
+    marginTop: s.sm,
+    paddingTop: s.sm,
     borderTopWidth: 1,
-    borderTopColor: COLORS.lightGray,
-    paddingTop: 12,
+    borderTopColor: colors.border,
+    gap: s.xs,
   },
-  restaurantCard: {
+  recCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 8,
+    gap: s.sm,
+    backgroundColor: colors.bgRaised,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: s.sm,
+    borderRadius: radius.md,
   },
-  restaurantInfo: {
-    flexDirection: 'row',
+  recBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,194,14,0.15)',
+    borderWidth: 1,
+    borderColor: colors.primary,
     alignItems: 'center',
-    flex: 1,
-  },
-  restaurantNumber: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: COLORS.primary,
     justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
   },
-  restaurantNumberText: {
-    color: COLORS.white,
-    fontSize: 12,
-    fontWeight: 'bold',
+  recBadgeText: {
+    color: colors.primary,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.black,
   },
-  restaurantDetails: {
-    flex: 1,
+  recBody: { flex: 1 },
+  recName: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
   },
-  restaurantName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  restaurantReason: {
-    fontSize: 12,
-    color: COLORS.textLight,
+  recReason: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
     marginTop: 2,
+    lineHeight: 16,
   },
-  suggestionsContainer: {
-    backgroundColor: COLORS.white,
+
+  // ============ SUGGESTIONS ============
+  suggestionsWrap: {
+    paddingTop: s.xs,
+    paddingBottom: s.xs,
     borderTopWidth: 1,
-    borderTopColor: COLORS.lightGray,
-    paddingVertical: 8,
+    borderTopColor: colors.border,
+    backgroundColor: colors.bg,
+  },
+  suggestionsEyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+    paddingHorizontal: s.md,
+    marginBottom: s.xs,
   },
   suggestionsList: {
-    paddingHorizontal: 16,
+    paddingHorizontal: s.md,
+    gap: s.xs,
   },
   suggestionChip: {
-    backgroundColor: COLORS.background,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
+    paddingHorizontal: s.md,
+    paddingVertical: s.xs + 2,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: COLORS.lightGray,
+    borderColor: colors.border,
+    marginRight: s.xs,
   },
   suggestionText: {
-    fontSize: 14,
-    color: COLORS.text,
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
   },
-  inputContainer: {
+
+  // ============ COMPOSER ============
+  composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    padding: 12,
-    paddingBottom: 24,
-    backgroundColor: COLORS.white,
+    gap: s.xs,
+    paddingHorizontal: s.md,
+    paddingTop: s.sm,
+    paddingBottom: s.sm,
+    backgroundColor: colors.bg,
     borderTopWidth: 1,
-    borderTopColor: COLORS.lightGray,
+    borderTopColor: colors.border,
+  },
+  inputField: {
+    flex: 1,
+    backgroundColor: colors.inputBg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.xl,
+    paddingHorizontal: s.md,
+    paddingVertical: s.sm,
+    minHeight: 48,
+    maxHeight: 120,
+    justifyContent: 'center',
   },
   input: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    borderRadius: 24,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    paddingRight: 50,
-    fontSize: 15,
-    maxHeight: 100,
-    color: COLORS.text,
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.medium,
+    paddingVertical: 0,
   },
   sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
+    width: 48,
+    height: 48,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
     alignItems: 'center',
-    marginLeft: -48,
+    justifyContent: 'center',
+    ...shadows.glow,
   },
   sendButtonDisabled: {
-    backgroundColor: COLORS.gray,
+    backgroundColor: colors.surfaceStrong,
+    opacity: 0.6,
   },
 });

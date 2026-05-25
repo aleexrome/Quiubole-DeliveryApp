@@ -1,6 +1,10 @@
 // ==========================================
-// PANTALLA DE ESTADO DE CUENTA (ADMIN)
-// Todas las ordenes, pagos y comisiones
+// DEVOLÓN — Admin Finance
+//
+// Estado de cuenta y finanzas globales. KPIs principales en card hero
+// negra con números amarillos, secciones (Ingresos/Por pagar/Efectivo)
+// como cards glass con filas, ganancia neta destacada y tabs internas
+// (Resumen / Movimientos / Pendientes).
 // ==========================================
 
 import React, { useState, useEffect } from 'react';
@@ -11,33 +15,34 @@ import {
   ScrollView,
   TouchableOpacity,
   FlatList,
-  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { adminApi } from '../../services/api';
+import { Card, Button, EmptyState } from '../../components/ui';
+import {
+  colors,
+  s,
+  radius,
+  shadows,
+  fontSize,
+  fontWeight,
+  tracking,
+} from '../../theme';
 
 type Period = 'today' | 'week' | 'month' | 'custom';
 
 interface FinancialSummary {
-  // Ingresos
-  totalSales: number;              // Total de ventas
-  totalOrders: number;             // Numero de ordenes
-
-  // Comisiones generadas
-  restaurantCommissions: number;   // Comision cobrada a restaurantes
-  serviceFeesCollected: number;    // Tarifa de servicio cobrada a clientes
-  deliveryFeesCollected: number;   // Tarifas de envio
-
-  // Pagos pendientes
-  owedToRestaurants: number;       // Lo que debemos a restaurantes
-  owedToDrivers: number;           // Lo que debemos a repartidores
-  pendingFromDrivers: number;      // Efectivo pendiente de liquidar
-
-  // Ganancia neta
+  totalSales: number;
+  totalOrders: number;
+  restaurantCommissions: number;
+  serviceFeesCollected: number;
+  deliveryFeesCollected: number;
+  owedToRestaurants: number;
+  owedToDrivers: number;
+  pendingFromDrivers: number;
   netProfit: number;
-
-  // Por metodo de pago
   cardPayments: number;
   cashPayments: number;
 }
@@ -58,11 +63,41 @@ interface Transaction {
   createdAt: Date;
 }
 
+const formatCurrency = (amount: number | undefined | null) =>
+  `$${(amount ?? 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+
+const formatDate = (date: Date | string | undefined | null) => {
+  if (!date) return '—';
+  return new Date(date).toLocaleString('es-MX', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const txMeta = (type: string): { icon: keyof typeof Ionicons.glyphMap; tint: string } => {
+  switch (type) {
+    case 'order':
+      return { icon: 'receipt-outline', tint: colors.success };
+    case 'driver_payout':
+      return { icon: 'bicycle-outline', tint: colors.info };
+    case 'restaurant_payout':
+      return { icon: 'restaurant-outline', tint: colors.primary };
+    case 'driver_settlement':
+      return { icon: 'cash-outline', tint: colors.info };
+    case 'refund':
+      return { icon: 'arrow-undo-outline', tint: colors.danger };
+    default:
+      return { icon: 'help-outline', tint: colors.textMuted };
+  }
+};
+
 export default function AdminFinanceScreen() {
+  const navigation = useNavigation<any>();
   const [period, setPeriod] = useState<Period>('today');
   const [summary, setSummary] = useState<FinancialSummary | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'summary' | 'transactions' | 'pending'>('summary');
 
   useEffect(() => {
@@ -71,36 +106,33 @@ export default function AdminFinanceScreen() {
 
   const loadData = async () => {
     try {
-      // En produccion estos serian endpoints reales
       const [summaryData, transactionsData] = await Promise.all([
         adminApi.getFinancialSummary(period),
         adminApi.getTransactions(period),
       ]);
       setSummary(summaryData);
       setTransactions(transactionsData);
-    } catch (error) {
-      console.error('Error loading financial data:', error);
-      // Datos de ejemplo para mostrar la UI
+    } catch {
       setSummary({
-        totalSales: 45680.50,
+        totalSales: 45680.5,
         totalOrders: 234,
         restaurantCommissions: 6852.08,
         serviceFeesCollected: 3654.44,
-        deliveryFeesCollected: 5850.00,
+        deliveryFeesCollected: 5850.0,
         owedToRestaurants: 38828.42,
-        owedToDrivers: 4680.00,
-        pendingFromDrivers: 2340.00,
+        owedToDrivers: 4680.0,
+        pendingFromDrivers: 2340.0,
         netProfit: 8016.52,
-        cardPayments: 32500.00,
-        cashPayments: 13180.50,
+        cardPayments: 32500.0,
+        cashPayments: 13180.5,
       });
       setTransactions([
         {
           id: '1',
           type: 'order',
-          orderNumber: 'QUB-ABC123',
+          orderNumber: 'DVL-ABC123',
           description: 'Pedido completado',
-          amount: 285.00,
+          amount: 285.0,
           fee: 42.75,
           net: 42.75,
           status: 'completed',
@@ -110,176 +142,92 @@ export default function AdminFinanceScreen() {
           customer: 'María García',
           createdAt: new Date(),
         },
-        // ... más transacciones
       ]);
     }
   };
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
-  };
-
-  const formatCurrency = (amount: number) =>
-    `$${amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
-
-  const formatDate = (date: Date) => {
-    const d = new Date(date);
-    return d.toLocaleString('es-MX', {
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const getTransactionIcon = (type: string) => {
-    switch (type) {
-      case 'order': return { icon: 'receipt', color: '#22C55E' };
-      case 'driver_payout': return { icon: 'bicycle', color: '#8B5CF6' };
-      case 'restaurant_payout': return { icon: 'restaurant', color: '#EC4899' };
-      case 'driver_settlement': return { icon: 'cash', color: '#3B82F6' };
-      case 'refund': return { icon: 'arrow-undo', color: '#EF4444' };
-      default: return { icon: 'help', color: '#666' };
-    }
-  };
-
   const renderSummary = () => (
-    <ScrollView style={styles.tabContent}>
-      {/* Resumen Principal */}
-      <View style={styles.mainCard}>
-        <Text style={styles.mainCardTitle}>Resumen del Día</Text>
-        <Text style={styles.mainCardDate}>
-          {new Date().toLocaleDateString('es-MX', {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long'
-          })}
+    <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+      {/* Hero card */}
+      <Card variant="raised" padding={s.xl} borderRadius={radius.xl} style={styles.heroCard}>
+        <Text style={styles.heroEyebrow}>RESUMEN</Text>
+        <Text style={styles.heroDate}>
+          {new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}
         </Text>
-
-        <View style={styles.mainStats}>
-          <View style={styles.mainStat}>
-            <Text style={styles.mainStatLabel}>Ventas Totales</Text>
-            <Text style={styles.mainStatValue}>
-              {formatCurrency(summary?.totalSales || 0)}
-            </Text>
+        <View style={styles.heroStats}>
+          <View style={styles.heroStat}>
+            <Text style={styles.heroStatLabel}>VENTAS TOTALES</Text>
+            <Text style={styles.heroStatValue}>{formatCurrency(summary?.totalSales || 0)}</Text>
           </View>
-          <View style={styles.mainStatDivider} />
-          <View style={styles.mainStat}>
-            <Text style={styles.mainStatLabel}>Pedidos</Text>
-            <Text style={styles.mainStatValue}>{summary?.totalOrders || 0}</Text>
+          <View style={styles.heroDivider} />
+          <View style={styles.heroStat}>
+            <Text style={styles.heroStatLabel}>PEDIDOS</Text>
+            <Text style={styles.heroStatValue}>{summary?.totalOrders || 0}</Text>
           </View>
         </View>
-      </View>
+      </Card>
 
       {/* Ingresos */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>
-          <Ionicons name="trending-up" size={18} color="#22C55E" /> Ingresos
-        </Text>
-        <View style={styles.financeCard}>
-          <View style={styles.financeRow}>
-            <Text style={styles.financeLabel}>Comisión restaurantes (15%)</Text>
-            <Text style={[styles.financeValue, styles.positive]}>
-              +{formatCurrency(summary?.restaurantCommissions || 0)}
-            </Text>
-          </View>
-          <View style={styles.financeRow}>
-            <Text style={styles.financeLabel}>Tarifa de servicio (8%)</Text>
-            <Text style={[styles.financeValue, styles.positive]}>
-              +{formatCurrency(summary?.serviceFeesCollected || 0)}
-            </Text>
-          </View>
-          <View style={styles.financeRow}>
-            <Text style={styles.financeLabel}>Parte de envíos</Text>
-            <Text style={[styles.financeValue, styles.positive]}>
-              +{formatCurrency((summary?.deliveryFeesCollected || 0) * 0.3)}
-            </Text>
-          </View>
-          <View style={[styles.financeRow, styles.totalRow]}>
-            <Text style={styles.totalLabel}>Total Ingresos</Text>
-            <Text style={[styles.totalValue, styles.positive]}>
-              {formatCurrency(
-                (summary?.restaurantCommissions || 0) +
-                (summary?.serviceFeesCollected || 0) +
-                ((summary?.deliveryFeesCollected || 0) * 0.3)
-              )}
-            </Text>
-          </View>
-        </View>
+      <View style={styles.sectionWrap}>
+        <Text style={styles.sectionEyebrow}>INGRESOS</Text>
+        <Card variant="glass" padding={s.lg} borderRadius={radius.xl}>
+          <FinanceRow label="Comisión restaurantes (15%)" value={summary?.restaurantCommissions || 0} sign="+" tint={colors.success} />
+          <Divider />
+          <FinanceRow label="Tarifa de servicio (8%)" value={summary?.serviceFeesCollected || 0} sign="+" tint={colors.success} />
+          <Divider />
+          <FinanceRow label="Parte de envíos" value={(summary?.deliveryFeesCollected || 0) * 0.3} sign="+" tint={colors.success} />
+          <Divider />
+          <TotalRow
+            label="Total ingresos"
+            value={
+              (summary?.restaurantCommissions || 0) +
+              (summary?.serviceFeesCollected || 0) +
+              (summary?.deliveryFeesCollected || 0) * 0.3
+            }
+            tint={colors.success}
+          />
+        </Card>
       </View>
 
-      {/* Pagos Pendientes */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>
-          <Ionicons name="time" size={18} color="#EAB308" /> Por Pagar
-        </Text>
-        <View style={styles.financeCard}>
-          <View style={styles.financeRow}>
-            <Text style={styles.financeLabel}>A restaurantes</Text>
-            <Text style={[styles.financeValue, styles.negative]}>
-              -{formatCurrency(summary?.owedToRestaurants || 0)}
-            </Text>
-          </View>
-          <View style={styles.financeRow}>
-            <Text style={styles.financeLabel}>A repartidores</Text>
-            <Text style={[styles.financeValue, styles.negative]}>
-              -{formatCurrency(summary?.owedToDrivers || 0)}
-            </Text>
-          </View>
-          <View style={[styles.financeRow, styles.totalRow]}>
-            <Text style={styles.totalLabel}>Total por Pagar</Text>
-            <Text style={[styles.totalValue, styles.negative]}>
-              {formatCurrency(
-                (summary?.owedToRestaurants || 0) +
-                (summary?.owedToDrivers || 0)
-              )}
-            </Text>
-          </View>
-        </View>
+      {/* Por pagar */}
+      <View style={styles.sectionWrap}>
+        <Text style={styles.sectionEyebrow}>POR PAGAR</Text>
+        <Card variant="glass" padding={s.lg} borderRadius={radius.xl}>
+          <FinanceRow label="A restaurantes" value={summary?.owedToRestaurants || 0} sign="−" tint={colors.danger} />
+          <Divider />
+          <FinanceRow label="A repartidores" value={summary?.owedToDrivers || 0} sign="−" tint={colors.danger} />
+          <Divider />
+          <TotalRow
+            label="Total por pagar"
+            value={(summary?.owedToRestaurants || 0) + (summary?.owedToDrivers || 0)}
+            tint={colors.danger}
+          />
+        </Card>
       </View>
 
-      {/* Efectivo Pendiente */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>
-          <Ionicons name="cash" size={18} color="#FF6B35" /> Efectivo
-        </Text>
-        <View style={styles.financeCard}>
-          <View style={styles.financeRow}>
-            <Text style={styles.financeLabel}>Cobrado en efectivo</Text>
-            <Text style={styles.financeValue}>
-              {formatCurrency(summary?.cashPayments || 0)}
-            </Text>
-          </View>
-          <View style={styles.financeRow}>
-            <Text style={styles.financeLabel}>Pendiente de liquidar</Text>
-            <Text style={[styles.financeValue, styles.warning]}>
-              {formatCurrency(summary?.pendingFromDrivers || 0)}
-            </Text>
-          </View>
-          <View style={styles.financeRow}>
-            <Text style={styles.financeLabel}>Cobrado con tarjeta</Text>
-            <Text style={styles.financeValue}>
-              {formatCurrency(summary?.cardPayments || 0)}
-            </Text>
-          </View>
-        </View>
+      {/* Efectivo */}
+      <View style={styles.sectionWrap}>
+        <Text style={styles.sectionEyebrow}>EFECTIVO</Text>
+        <Card variant="glass" padding={s.lg} borderRadius={radius.xl}>
+          <FinanceRow label="Cobrado en efectivo" value={summary?.cashPayments || 0} />
+          <Divider />
+          <FinanceRow label="Pendiente de liquidar" value={summary?.pendingFromDrivers || 0} tint={colors.primary} />
+          <Divider />
+          <FinanceRow label="Cobrado con tarjeta" value={summary?.cardPayments || 0} />
+        </Card>
       </View>
 
-      {/* Ganancia Neta */}
-      <View style={styles.profitCard}>
+      {/* Ganancia neta — destacada en amarillo */}
+      <Card variant="raised" padding={s.xl} borderRadius={radius.xl} style={styles.profitCard}>
         <View style={styles.profitHeader}>
-          <Ionicons name="wallet" size={32} color="#fff" />
-          <Text style={styles.profitTitle}>Ganancia Neta</Text>
+          <Ionicons name="wallet" size={28} color={colors.onPrimary} />
+          <Text style={styles.profitTitle}>GANANCIA NETA</Text>
         </View>
-        <Text style={styles.profitValue}>
-          {formatCurrency(summary?.netProfit || 0)}
-        </Text>
+        <Text style={styles.profitValue}>{formatCurrency(summary?.netProfit || 0)}</Text>
         <Text style={styles.profitSubtext}>
           Después de pagar a restaurantes y repartidores
         </Text>
-      </View>
+      </Card>
     </ScrollView>
   );
 
@@ -287,176 +235,95 @@ export default function AdminFinanceScreen() {
     <FlatList
       data={transactions}
       keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.transactionsList}
+      contentContainerStyle={styles.tabContent}
       renderItem={({ item }) => {
-        const { icon, color } = getTransactionIcon(item.type);
+        const meta = txMeta(item.type);
+        const isRefund = item.type === 'refund';
         return (
-          <TouchableOpacity style={styles.transactionCard}>
-            <View style={[styles.transactionIcon, { backgroundColor: color + '20' }]}>
-              <Ionicons name={icon as any} size={20} color={color} />
+          <Card variant="glass" padding={s.md} borderRadius={radius.lg} style={styles.txCard}>
+            <View
+              style={[
+                styles.txIcon,
+                { backgroundColor: `${meta.tint}1F`, borderColor: `${meta.tint}55` },
+              ]}
+            >
+              <Ionicons name={meta.icon} size={18} color={meta.tint} />
             </View>
-            <View style={styles.transactionInfo}>
-              <View style={styles.transactionHeader}>
-                <Text style={styles.transactionTitle}>
+            <View style={styles.txBody}>
+              <View style={styles.txHead}>
+                <Text style={styles.txTitle} numberOfLines={1}>
                   {item.orderNumber || item.description}
                 </Text>
-                <Text style={[
-                  styles.transactionAmount,
-                  item.type === 'refund' ? styles.negative : styles.positive
-                ]}>
-                  {item.type === 'refund' ? '-' : '+'}
+                <Text style={[styles.txAmount, { color: isRefund ? colors.danger : colors.success }]}>
+                  {isRefund ? '−' : '+'}
                   {formatCurrency(item.net)}
                 </Text>
               </View>
-              <Text style={styles.transactionDetails}>
-                {item.restaurant && `${item.restaurant} • `}
-                {item.paymentMethod === 'cash' ? 'Efectivo' : 'Tarjeta'}
+              <Text style={styles.txDetails}>
+                {item.restaurant && `${item.restaurant} · `}
+                {item.paymentMethod === 'cash' ? 'EFECTIVO' : 'TARJETA'}
               </Text>
-              <Text style={styles.transactionTime}>
-                {formatDate(item.createdAt)}
-              </Text>
+              <Text style={styles.txTime}>{formatDate(item.createdAt)}</Text>
             </View>
-          </TouchableOpacity>
+          </Card>
         );
       }}
       ListEmptyComponent={
-        <View style={styles.empty}>
-          <Ionicons name="document-text-outline" size={48} color="#E5E5E5" />
-          <Text style={styles.emptyText}>No hay transacciones</Text>
-        </View>
+        <EmptyState
+          icon="document-text-outline"
+          title="Sin transacciones"
+          subtitle="No hay movimientos en este período."
+        />
       }
     />
   );
 
   const renderPending = () => (
-    <ScrollView style={styles.tabContent}>
-      {/* Liquidaciones Pendientes de Repartidores */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Liquidaciones Pendientes</Text>
+    <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+      {/* Drivers pending */}
+      <Text style={styles.sectionEyebrow}>LIQUIDACIONES PENDIENTES</Text>
+      <PendingDriverCard name="Juan Pérez" phone="55 1234 5678" amount={850} orders={8} hours={2} />
+      <PendingDriverCard name="Carlos López" phone="55 9876 5432" amount={420} orders={4} hours={5} />
 
-        <View style={styles.pendingCard}>
-          <View style={styles.pendingHeader}>
-            <View style={styles.pendingDriver}>
-              <View style={styles.driverAvatar}>
-                <Ionicons name="person" size={20} color="#FF6B35" />
-              </View>
-              <View>
-                <Text style={styles.driverName}>Juan Pérez</Text>
-                <Text style={styles.driverPhone}>55 1234 5678</Text>
-              </View>
-            </View>
-            <View style={styles.pendingAmount}>
-              <Text style={styles.pendingLabel}>Debe</Text>
-              <Text style={styles.pendingValue}>$850.00</Text>
-            </View>
-          </View>
-          <View style={styles.pendingDetails}>
-            <Text style={styles.pendingDetailText}>
-              8 pedidos en efectivo • Último: hace 2 horas
-            </Text>
-          </View>
-          <View style={styles.pendingActions}>
-            <TouchableOpacity style={styles.reminderBtn}>
-              <Ionicons name="notifications" size={16} color="#FF6B35" />
-              <Text style={styles.reminderBtnText}>Recordar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.confirmBtn}>
-              <Ionicons name="checkmark" size={16} color="#fff" />
-              <Text style={styles.confirmBtnText}>Confirmar Pago</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.pendingCard}>
-          <View style={styles.pendingHeader}>
-            <View style={styles.pendingDriver}>
-              <View style={styles.driverAvatar}>
-                <Ionicons name="person" size={20} color="#FF6B35" />
-              </View>
-              <View>
-                <Text style={styles.driverName}>Carlos López</Text>
-                <Text style={styles.driverPhone}>55 9876 5432</Text>
-              </View>
-            </View>
-            <View style={styles.pendingAmount}>
-              <Text style={styles.pendingLabel}>Debe</Text>
-              <Text style={styles.pendingValue}>$420.00</Text>
-            </View>
-          </View>
-          <View style={styles.pendingDetails}>
-            <Text style={styles.pendingDetailText}>
-              4 pedidos en efectivo • Último: hace 5 horas
-            </Text>
-          </View>
-          <View style={styles.pendingActions}>
-            <TouchableOpacity style={styles.reminderBtn}>
-              <Ionicons name="notifications" size={16} color="#FF6B35" />
-              <Text style={styles.reminderBtnText}>Recordar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.confirmBtn}>
-              <Ionicons name="checkmark" size={16} color="#fff" />
-              <Text style={styles.confirmBtnText}>Confirmar Pago</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-
-      {/* Pagos a Restaurantes */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Pagos a Restaurantes (Semanal)</Text>
-
-        <View style={styles.payoutCard}>
-          <View style={styles.payoutHeader}>
-            <Ionicons name="restaurant" size={24} color="#EC4899" />
-            <View style={styles.payoutInfo}>
-              <Text style={styles.payoutName}>Tacos El Güero</Text>
-              <Text style={styles.payoutOrders}>47 pedidos esta semana</Text>
-            </View>
-            <Text style={styles.payoutAmount}>{formatCurrency(8450.00)}</Text>
-          </View>
-          <TouchableOpacity style={styles.payoutBtn}>
-            <Text style={styles.payoutBtnText}>Marcar como Pagado</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.payoutCard}>
-          <View style={styles.payoutHeader}>
-            <Ionicons name="restaurant" size={24} color="#EC4899" />
-            <View style={styles.payoutInfo}>
-              <Text style={styles.payoutName}>Pizzería Roma</Text>
-              <Text style={styles.payoutOrders}>32 pedidos esta semana</Text>
-            </View>
-            <Text style={styles.payoutAmount}>{formatCurrency(6280.00)}</Text>
-          </View>
-          <TouchableOpacity style={styles.payoutBtn}>
-            <Text style={styles.payoutBtnText}>Marcar como Pagado</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      {/* Restaurants payouts */}
+      <Text style={[styles.sectionEyebrow, { marginTop: s.xl }]}>PAGOS A RESTAURANTES (SEMANAL)</Text>
+      <PayoutCard name="Tacos El Güero" orders={47} amount={8450} />
+      <PayoutCard name="Pizzería Roma" orders={32} amount={6280} />
     </ScrollView>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Estado de Cuenta</Text>
-        <TouchableOpacity style={styles.exportBtn}>
-          <Ionicons name="download-outline" size={20} color="#FF6B35" />
-          <Text style={styles.exportBtnText}>Exportar</Text>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chevron-back" size={26} color={colors.text} />
+        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.eyebrow}>FINANZAS</Text>
+          <Text style={styles.title}>Estado de cuenta</Text>
+        </View>
+        <TouchableOpacity style={styles.exportBtn} activeOpacity={0.85}>
+          <Ionicons name="download-outline" size={16} color={colors.primary} />
+          <Text style={styles.exportBtnText}>EXPORTAR</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Period Selector */}
-      <View style={styles.periodSelector}>
+      {/* Period pills */}
+      <View style={styles.periodRow}>
         {(['today', 'week', 'month'] as Period[]).map((p) => (
           <TouchableOpacity
             key={p}
-            style={[styles.periodBtn, period === p && styles.periodBtnActive]}
+            style={[styles.periodPill, period === p && styles.periodPillActive]}
             onPress={() => setPeriod(p)}
+            activeOpacity={0.85}
           >
             <Text style={[styles.periodText, period === p && styles.periodTextActive]}>
-              {p === 'today' ? 'Hoy' : p === 'week' ? 'Semana' : 'Mes'}
+              {p === 'today' ? 'HOY' : p === 'week' ? 'SEMANA' : 'MES'}
             </Text>
           </TouchableOpacity>
         ))}
@@ -464,48 +331,20 @@ export default function AdminFinanceScreen() {
 
       {/* Tabs */}
       <View style={styles.tabs}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'summary' && styles.tabActive]}
-          onPress={() => setActiveTab('summary')}
-        >
-          <Ionicons
-            name="stats-chart"
-            size={18}
-            color={activeTab === 'summary' ? '#FF6B35' : '#666'}
-          />
-          <Text style={[styles.tabText, activeTab === 'summary' && styles.tabTextActive]}>
-            Resumen
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'transactions' && styles.tabActive]}
-          onPress={() => setActiveTab('transactions')}
-        >
-          <Ionicons
-            name="list"
-            size={18}
-            color={activeTab === 'transactions' ? '#FF6B35' : '#666'}
-          />
-          <Text style={[styles.tabText, activeTab === 'transactions' && styles.tabTextActive]}>
-            Movimientos
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'pending' && styles.tabActive]}
-          onPress={() => setActiveTab('pending')}
-        >
-          <Ionicons
-            name="time"
-            size={18}
-            color={activeTab === 'pending' ? '#FF6B35' : '#666'}
-          />
-          <Text style={[styles.tabText, activeTab === 'pending' && styles.tabTextActive]}>
-            Pendientes
-          </Text>
-        </TouchableOpacity>
+        {(['summary', 'transactions', 'pending'] as const).map((t) => (
+          <TouchableOpacity
+            key={t}
+            style={[styles.tab, activeTab === t && styles.tabActive]}
+            onPress={() => setActiveTab(t)}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]}>
+              {t === 'summary' ? 'RESUMEN' : t === 'transactions' ? 'MOVIMIENTOS' : 'PENDIENTES'}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      {/* Content */}
       {activeTab === 'summary' && renderSummary()}
       {activeTab === 'transactions' && renderTransactions()}
       {activeTab === 'pending' && renderPending()}
@@ -513,393 +352,458 @@ export default function AdminFinanceScreen() {
   );
 }
 
+/* ============================================
+   Reusable sub-components dentro del módulo
+   ============================================ */
+
+function FinanceRow({
+  label,
+  value,
+  sign,
+  tint = colors.text,
+}: {
+  label: string;
+  value: number;
+  sign?: '+' | '−';
+  tint?: string;
+}) {
+  return (
+    <View style={localStyles.financeRow}>
+      <Text style={localStyles.financeLabel}>{label}</Text>
+      <Text style={[localStyles.financeValue, { color: tint }]}>
+        {sign}
+        {formatCurrency(value)}
+      </Text>
+    </View>
+  );
+}
+
+function Divider() {
+  return <View style={localStyles.divider} />;
+}
+
+function TotalRow({ label, value, tint = colors.text }: { label: string; value: number; tint?: string }) {
+  return (
+    <View style={localStyles.totalRow}>
+      <Text style={localStyles.totalLabel}>{label}</Text>
+      <Text style={[localStyles.totalValue, { color: tint }]}>{formatCurrency(value)}</Text>
+    </View>
+  );
+}
+
+function PendingDriverCard({
+  name,
+  phone,
+  amount,
+  orders,
+  hours,
+}: {
+  name: string;
+  phone: string;
+  amount: number;
+  orders: number;
+  hours: number;
+}) {
+  return (
+    <Card variant="glass" padding={s.md} borderRadius={radius.xl} style={{ marginTop: s.sm }}>
+      <View style={localStyles.pendingHead}>
+        <View style={localStyles.driverAvatar}>
+          <Ionicons name="person-outline" size={18} color={colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={localStyles.driverName}>{name}</Text>
+          <Text style={localStyles.driverPhone}>{phone}</Text>
+        </View>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={localStyles.pendingLabel}>DEBE</Text>
+          <Text style={localStyles.pendingValue}>{formatCurrency(amount)}</Text>
+        </View>
+      </View>
+      <Text style={localStyles.pendingDetail}>
+        {orders} pedidos en efectivo · Último: hace {hours}h
+      </Text>
+      <View style={localStyles.pendingActions}>
+        <View style={{ flex: 1 }}>
+          <Button label="RECORDAR" variant="secondary" size="sm" icon="notifications-outline" iconPosition="left" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Button label="CONFIRMAR PAGO" variant="primary" size="sm" icon="checkmark" iconPosition="left" />
+        </View>
+      </View>
+    </Card>
+  );
+}
+
+function PayoutCard({ name, orders, amount }: { name: string; orders: number; amount: number }) {
+  return (
+    <Card variant="glass" padding={s.md} borderRadius={radius.xl} style={{ marginTop: s.sm }}>
+      <View style={localStyles.payoutHead}>
+        <View style={localStyles.restaurantAvatar}>
+          <Ionicons name="restaurant-outline" size={18} color={colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={localStyles.driverName}>{name}</Text>
+          <Text style={localStyles.driverPhone}>{orders} pedidos esta semana</Text>
+        </View>
+        <Text style={localStyles.payoutAmount}>{formatCurrency(amount)}</Text>
+      </View>
+      <View style={{ marginTop: s.sm }}>
+        <Button label="MARCAR COMO PAGADO" variant="secondary" size="sm" />
+      </View>
+    </Card>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
+  container: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
+    gap: s.xs,
+    paddingHorizontal: s.md,
+    paddingTop: s.sm,
+    paddingBottom: s.md,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  eyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0F172A',
+    color: colors.text,
+    fontSize: fontSize['3xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.6,
+    marginTop: 2,
   },
   exportBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF5F0',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
     gap: 6,
+    paddingHorizontal: s.sm,
+    paddingVertical: s.xs,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(255,194,14,0.32)',
+    backgroundColor: 'rgba(255,194,14,0.1)',
   },
   exportBtnText: {
-    color: '#FF6B35',
-    fontWeight: '600',
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
   },
-  periodSelector: {
+
+  periodRow: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    gap: 8,
+    paddingHorizontal: s.xl,
+    gap: s.xs,
+    marginBottom: s.md,
   },
-  periodBtn: {
+  periodPill: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#F5F5F5',
+    paddingVertical: s.xs + 2,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
   },
-  periodBtnActive: {
-    backgroundColor: '#FF6B35',
+  periodPillActive: {
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    borderColor: colors.primary,
   },
   periodText: {
-    fontSize: 14,
-    color: '#666',
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
   },
-  periodTextActive: {
-    color: '#fff',
-    fontWeight: '600',
-  },
+  periodTextActive: { color: colors.primary },
+
   tabs: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
+    paddingHorizontal: s.xl,
     borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
+    borderBottomColor: colors.border,
   },
   tab: {
     flex: 1,
-    flexDirection: 'row',
+    paddingVertical: s.sm,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    gap: 6,
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
-  tabActive: {
-    borderBottomColor: '#FF6B35',
-  },
+  tabActive: { borderBottomColor: colors.primary },
   tabText: {
-    fontSize: 14,
-    color: '#666',
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
   },
-  tabTextActive: {
-    color: '#FF6B35',
-    fontWeight: '600',
-  },
+  tabTextActive: { color: colors.primary },
+
   tabContent: {
-    flex: 1,
+    paddingHorizontal: s.xl,
+    paddingTop: s.md,
+    paddingBottom: s['4xl'],
   },
-  mainCard: {
-    backgroundColor: '#0F172A',
-    margin: 16,
-    padding: 24,
-    borderRadius: 16,
+
+  // Hero KPI card
+  heroCard: {},
+  heroEyebrow: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
   },
-  mainCardTitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.7)',
-  },
-  mainCardDate: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
-    marginTop: 4,
+  heroDate: {
+    color: colors.textFaint,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+    marginTop: 2,
     textTransform: 'capitalize',
   },
-  mainStats: {
+  heroStats: {
     flexDirection: 'row',
-    marginTop: 24,
+    marginTop: s.lg,
   },
-  mainStat: {
-    flex: 1,
+  heroStat: { flex: 1 },
+  heroStatLabel: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
   },
-  mainStatLabel: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.6)',
-  },
-  mainStatValue: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
+  heroStatValue: {
+    color: colors.primary,
+    fontSize: fontSize['3xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.6,
     marginTop: 4,
   },
-  mainStatDivider: {
+  heroDivider: {
     width: 1,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    marginHorizontal: 16,
+    backgroundColor: colors.border,
+    marginHorizontal: s.md,
   },
-  section: {
-    padding: 16,
+
+  // Sections
+  sectionWrap: { marginTop: s.xl },
+  sectionEyebrow: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+    marginBottom: s.sm,
+    paddingLeft: s.xs,
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#0F172A',
-    marginBottom: 12,
-  },
-  financeCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-  },
-  financeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
-  },
-  financeLabel: {
-    fontSize: 14,
-    color: '#666',
-  },
-  financeValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0F172A',
-  },
-  positive: {
-    color: '#22C55E',
-  },
-  negative: {
-    color: '#EF4444',
-  },
-  warning: {
-    color: '#EAB308',
-  },
-  totalRow: {
-    borderBottomWidth: 0,
-    paddingTop: 16,
-    marginTop: 8,
-    borderTopWidth: 2,
-    borderTopColor: '#F5F5F5',
-  },
-  totalLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#0F172A',
-  },
-  totalValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
+
+  // Profit card
   profitCard: {
-    backgroundColor: '#22C55E',
-    margin: 16,
-    padding: 24,
-    borderRadius: 16,
+    marginTop: s.xl,
     alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    ...shadows.glow,
   },
   profitHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: s.xs,
   },
   profitTitle: {
-    fontSize: 18,
-    color: '#fff',
-    fontWeight: '600',
+    color: colors.onPrimary,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
   },
   profitValue: {
-    fontSize: 42,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginTop: 12,
+    color: colors.onPrimary,
+    fontSize: fontSize['4xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -1,
+    marginTop: s.sm,
   },
   profitSubtext: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 8,
+    color: 'rgba(0,0,0,0.65)',
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+    marginTop: s.xs,
+    textAlign: 'center',
   },
-  transactionsList: {
-    padding: 16,
-  },
-  transactionCard: {
+
+  // Transactions
+  txCard: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
+    alignItems: 'center',
+    gap: s.sm,
+    marginBottom: s.xs,
   },
-  transactionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+  txIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  transactionInfo: {
+  txBody: { flex: 1 },
+  txHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  txTitle: {
     flex: 1,
-    marginLeft: 12,
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
+    marginRight: s.xs,
   },
-  transactionHeader: {
+  txAmount: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.2,
+  },
+  txDetails: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
+    marginTop: 4,
+  },
+  txTime: {
+    color: colors.textFaint,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.semibold,
+    marginTop: 2,
+  },
+});
+
+const localStyles = StyleSheet.create({
+  financeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: s.sm,
   },
-  transactionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#0F172A',
+  financeLabel: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
   },
-  transactionAmount: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  financeValue: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
   },
-  transactionDetails: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
   },
-  transactionTime: {
-    fontSize: 11,
-    color: '#999',
-    marginTop: 4,
-  },
-  pendingCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  pendingHeader: {
+  totalRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: s.md,
+    marginTop: s.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
-  pendingDriver: {
+  totalLabel: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
+  },
+  totalValue: {
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.3,
+  },
+
+  pendingHead: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: s.sm,
   },
   driverAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFF5F0',
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,194,14,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+  },
+  restaurantAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,194,14,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   driverName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0F172A',
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
   },
   driverPhone: {
-    fontSize: 12,
-    color: '#666',
-  },
-  pendingAmount: {
-    alignItems: 'flex-end',
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
+    marginTop: 2,
   },
   pendingLabel: {
-    fontSize: 12,
-    color: '#666',
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
   },
   pendingValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#EF4444',
+    color: colors.danger,
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.3,
   },
-  pendingDetails: {
-    marginTop: 12,
-    paddingTop: 12,
+  pendingDetail: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+    marginTop: s.sm,
+    paddingTop: s.sm,
     borderTopWidth: 1,
-    borderTopColor: '#F5F5F5',
-  },
-  pendingDetailText: {
-    fontSize: 12,
-    color: '#666',
+    borderTopColor: colors.border,
   },
   pendingActions: {
     flexDirection: 'row',
-    marginTop: 16,
-    gap: 12,
+    gap: s.xs,
+    marginTop: s.md,
   },
-  reminderBtn: {
-    flex: 1,
+
+  payoutHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FF6B35',
-    gap: 6,
-  },
-  reminderBtnText: {
-    color: '#FF6B35',
-    fontWeight: '600',
-  },
-  confirmBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#22C55E',
-    gap: 6,
-  },
-  confirmBtnText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  payoutCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  payoutHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  payoutInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  payoutName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0F172A',
-  },
-  payoutOrders: {
-    fontSize: 12,
-    color: '#666',
+    gap: s.sm,
   },
   payoutAmount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#0F172A',
-  },
-  payoutBtn: {
-    marginTop: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center',
-  },
-  payoutBtnText: {
-    color: '#666',
-    fontWeight: '600',
-  },
-  empty: {
-    alignItems: 'center',
-    paddingVertical: 64,
-  },
-  emptyText: {
-    color: '#666',
-    marginTop: 12,
+    color: colors.text,
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.3,
   },
 });

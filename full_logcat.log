@@ -1,0 +1,7 @@
+--------- beginning of system
+04-20 19:35:08.456 W/AppOps  (  515): Noting op not finished: uid 10120 pkg com.google.android.gms code 113 startTime of in progress event=1776704383899
+04-20 19:35:08.465 W/AppOps  (  515): Noting op not finished: uid 10120 pkg com.google.android.gms code 113 startTime of in progress event=1776704383899
+04-20 19:35:08.469 W/AppOps  (  515): Noting op not finished: uid 10120 pkg com.google.android.gms code 79 startTime of in progress event=1776704384020
+--------- beginning of main
+04-20 19:35:09.067 W/ThreadPoolForeg( 4523): type=1400 audit(0.0:1026): avc: denied { write } for name="traced_producer" dev="tmpfs" ino=659 scontext=u:r:gmscore_app:s0:c512,c768 tcontext=u:object_r:traced_producer_socket:s0 tclass=sock_file permissive=0 app=com.google.android.gms
+04-20 19:35:10.187 E/android.hardware.power.stats@1.0-service-mock(  332): Failed to getEnergyData

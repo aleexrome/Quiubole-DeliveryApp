@@ -83,8 +83,15 @@ export class Order {
   @Column({ type: 'decimal', precision: 10, scale: 6 })
   deliveryLongitude: number;
 
+  // Indicaciones del domicilio: "depto 2B, timbre roto", "tocar 3 veces"
+  // — orientadas al rider para entregar.
   @Column({ nullable: true })
   deliveryInstructions: string;
+
+  // Notas sobre la comida: "sin catsup", "sin chile", "extra salsa"
+  // — orientadas al restaurante. Driver también las ve para verificar.
+  @Column({ type: 'text', nullable: true })
+  customerNotes: string;
 
   @Column({ nullable: true })
   paymentMethod: string;
@@ -127,6 +134,19 @@ export class Order {
 
   @Column({ nullable: true })
   cancellationReason: string;
+
+  // ============================================
+  // PROXIMITY NOTIFICATIONS — Timestamps de las notifs que ya fueron
+  // disparadas al cliente para que el driver mueva la pin sin re-spamear.
+  // El backend calcula la distancia driver→destino en updateLocation y
+  // marca aquí cuando el push correspondiente ya se envió.
+  // ============================================
+
+  @Column({ nullable: true })
+  customerNearNotifiedAt: Date;
+
+  @Column({ nullable: true })
+  customerArrivedNotifiedAt: Date;
 
   @Column({ type: 'jsonb', nullable: true })
   items: any;

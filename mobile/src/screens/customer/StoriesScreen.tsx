@@ -1,5 +1,10 @@
 // ==========================================
-// STORIES SCREEN - STORIES DE RESTAURANTES
+// DEVOLÓN — StoriesScreen
+//
+// Full-screen tap-to-advance stories. Bg negro absoluto del brand,
+// imágenes con overlay gradient editorial (negro al pie). Progress bars
+// finitas en blanco, header con avatar glass + nombre del restaurante.
+// CTAs en pill amarillo con glow.
 // ==========================================
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -10,29 +15,29 @@ import {
   Dimensions,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  Image,
   Animated,
   StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import {
+  colors,
+  s,
+  radius,
+  shadows,
+  fontSize,
+  fontWeight,
+  tracking,
+} from '../../theme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const STORY_DURATION = 5000; // 5 segundos por historia
-
-const COLORS = {
-  primary: '#FF6B35',
-  white: '#FFFFFF',
-  black: '#000000',
-  gray: '#6C757D',
-  overlay: 'rgba(0,0,0,0.3)',
-};
+const STORY_DURATION = 5000;
 
 interface Story {
   id: string;
   type: 'image' | 'promo' | 'product';
   imageUrl?: string;
-  backgroundColor?: string;
   emoji?: string;
   title?: string;
   subtitle?: string;
@@ -50,7 +55,6 @@ interface RestaurantStories {
   stories: Story[];
 }
 
-// Datos de ejemplo
 const MOCK_STORIES: RestaurantStories[] = [
   {
     restaurantId: '1',
@@ -60,9 +64,8 @@ const MOCK_STORIES: RestaurantStories[] = [
       {
         id: 's1',
         type: 'promo',
-        backgroundColor: '#FF6B35',
         emoji: '🔥',
-        title: '2x1 en Tacos!',
+        title: '2x1 en Tacos',
         subtitle: 'Solo hoy de 6pm a 10pm',
         promoCode: 'TACOS2X1',
         promoDiscount: '50%',
@@ -70,18 +73,16 @@ const MOCK_STORIES: RestaurantStories[] = [
       {
         id: 's2',
         type: 'product',
-        backgroundColor: '#2E4057',
         emoji: '🌮',
         productId: 'prod-1',
         productName: 'Taco de Pastor',
         productPrice: 35,
-        title: 'Nuevo!',
-        subtitle: 'Taco de Pastor con pina asada',
+        title: 'Nuevo en menú',
+        subtitle: 'Taco de Pastor con piña asada',
       },
       {
         id: 's3',
         type: 'image',
-        backgroundColor: '#4CAF50',
         emoji: '🥑',
         title: 'Guacamole fresco',
         subtitle: 'Preparado al momento',
@@ -96,7 +97,6 @@ const MOCK_STORIES: RestaurantStories[] = [
       {
         id: 's4',
         type: 'promo',
-        backgroundColor: '#E91E63',
         emoji: '🍣',
         title: '30% OFF',
         subtitle: 'En rolls especiales',
@@ -106,12 +106,11 @@ const MOCK_STORIES: RestaurantStories[] = [
       {
         id: 's5',
         type: 'product',
-        backgroundColor: '#9C27B0',
         emoji: '🥢',
         productId: 'prod-2',
         productName: 'Dragon Roll',
         productPrice: 189,
-        title: 'Best Seller',
+        title: 'Best seller',
         subtitle: 'El favorito de nuestros clientes',
       },
     ],
@@ -132,17 +131,15 @@ export default function StoriesScreen() {
   const story = restaurant?.stories[currentStory];
 
   useEffect(() => {
-    // Inicializar animaciones de progreso
-    progressAnimations.current = restaurant?.stories.map(() => new Animated.Value(0)) || [];
+    progressAnimations.current =
+      restaurant?.stories.map(() => new Animated.Value(0)) || [];
   }, [currentRestaurant]);
 
   useEffect(() => {
     if (!restaurant || isPaused) return;
 
-    // Reiniciar animacion actual
     progressAnimations.current[currentStory]?.setValue(0);
 
-    // Animar progreso
     const animation = Animated.timing(progressAnimations.current[currentStory], {
       toValue: 1,
       duration: STORY_DURATION,
@@ -150,9 +147,7 @@ export default function StoriesScreen() {
     });
 
     animation.start(({ finished }) => {
-      if (finished) {
-        goToNextStory();
-      }
+      if (finished) goToNextStory();
     });
 
     return () => animation.stop();
@@ -160,22 +155,18 @@ export default function StoriesScreen() {
 
   const goToNextStory = () => {
     if (currentStory < restaurant.stories.length - 1) {
-      // Completar barra actual
       progressAnimations.current[currentStory]?.setValue(1);
       setCurrentStory(currentStory + 1);
     } else {
-      // Ir al siguiente restaurante
       goToNextRestaurant();
     }
   };
 
   const goToPreviousStory = () => {
     if (currentStory > 0) {
-      // Reiniciar barra actual y la anterior
       progressAnimations.current[currentStory]?.setValue(0);
       setCurrentStory(currentStory - 1);
     } else if (currentRestaurant > 0) {
-      // Ir al restaurante anterior
       goToPreviousRestaurant();
     }
   };
@@ -198,11 +189,8 @@ export default function StoriesScreen() {
   };
 
   const handleTap = (side: 'left' | 'right') => {
-    if (side === 'left') {
-      goToPreviousStory();
-    } else {
-      goToNextStory();
-    }
+    if (side === 'left') goToPreviousStory();
+    else goToNextStory();
   };
 
   const handleLongPressIn = () => setIsPaused(true);
@@ -216,7 +204,6 @@ export default function StoriesScreen() {
   };
 
   const handleUsePromo = () => {
-    // Copiar codigo y navegar al restaurante
     navigation.navigate('RestaurantDetail', {
       restaurantId: restaurant.restaurantId,
       promoCode: story?.promoCode,
@@ -229,25 +216,33 @@ export default function StoriesScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="black" />
+      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
 
       <TouchableWithoutFeedback
         onPressIn={handleLongPressIn}
         onPressOut={handleLongPressOut}
       >
-        <View style={[styles.storyContent, { backgroundColor: story.backgroundColor || COLORS.black }]}>
-          {/* Progress bars */}
+        <View style={styles.storyContent}>
+          {/* AMBIENT GRADIENT */}
+          <LinearGradient
+            colors={['rgba(255,194,14,0.18)', 'transparent', 'rgba(0,0,0,0.6)']}
+            locations={[0, 0.5, 1]}
+            style={StyleSheet.absoluteFillObject}
+          />
+
+          {/* PROGRESS BARS */}
           <View style={styles.progressContainer}>
             {restaurant.stories.map((_, index) => (
-              <View key={index} style={styles.progressBarBackground}>
+              <View key={index} style={styles.progressBarBg}>
                 <Animated.View
                   style={[
                     styles.progressBarFill,
                     {
-                      width: progressAnimations.current[index]?.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: ['0%', '100%'],
-                      }) || '0%',
+                      width:
+                        progressAnimations.current[index]?.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ['0%', '100%'],
+                        }) || '0%',
                     },
                   ]}
                 />
@@ -255,26 +250,43 @@ export default function StoriesScreen() {
             ))}
           </View>
 
-          {/* Header */}
+          {/* HEADER */}
           <View style={styles.header}>
             <View style={styles.restaurantInfo}>
               <View style={styles.restaurantLogo}>
                 <Text style={styles.restaurantLogoEmoji}>{restaurant.restaurantLogo}</Text>
               </View>
-              <Text style={styles.restaurantName}>{restaurant.restaurantName}</Text>
+              <View>
+                <Text style={styles.headerEyebrow}>DEVOLÓN STORIES</Text>
+                <Text style={styles.restaurantName} numberOfLines={1}>
+                  {restaurant.restaurantName}
+                </Text>
+              </View>
             </View>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
-              <Ionicons name="close" size={28} color={COLORS.white} />
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.closeButton}
+            >
+              <Ionicons name="close" size={26} color={colors.text} />
             </TouchableOpacity>
           </View>
 
-          {/* Story Content */}
+          {/* STORY BODY */}
           <View style={styles.storyBody}>
-            <Text style={styles.storyEmoji}>{story.emoji}</Text>
+            {story.emoji && <Text style={styles.storyEmoji}>{story.emoji}</Text>}
+
+            {story.type === 'promo' && story.promoDiscount && (
+              <View style={styles.discountBadge}>
+                <Text style={styles.discountText}>{story.promoDiscount}</Text>
+                <Text style={styles.discountLabel}>DE DESCUENTO</Text>
+              </View>
+            )}
+
             {story.title && <Text style={styles.storyTitle}>{story.title}</Text>}
             {story.subtitle && <Text style={styles.storySubtitle}>{story.subtitle}</Text>}
 
-            {story.type === 'product' && story.productPrice && (
+            {story.type === 'product' && story.productPrice != null && (
               <View style={styles.priceTag}>
                 <Text style={styles.priceText}>${story.productPrice}</Text>
               </View>
@@ -282,13 +294,13 @@ export default function StoriesScreen() {
 
             {story.type === 'promo' && story.promoCode && (
               <View style={styles.promoCodeContainer}>
-                <Text style={styles.promoCodeLabel}>Codigo:</Text>
+                <Text style={styles.promoCodeLabel}>CÓDIGO</Text>
                 <Text style={styles.promoCodeText}>{story.promoCode}</Text>
               </View>
             )}
           </View>
 
-          {/* Touch areas */}
+          {/* TAP AREAS */}
           <View style={styles.touchAreas}>
             <TouchableOpacity
               style={styles.touchLeft}
@@ -302,35 +314,47 @@ export default function StoriesScreen() {
             />
           </View>
 
-          {/* Bottom Action */}
+          {/* BOTTOM CTA */}
           <View style={styles.bottomAction}>
             {story.type === 'product' && (
-              <TouchableOpacity style={styles.actionButton} onPress={handleViewProduct}>
-                <Text style={styles.actionButtonText}>Ver producto</Text>
-                <Ionicons name="arrow-forward" size={20} color={COLORS.white} />
+              <TouchableOpacity
+                activeOpacity={0.88}
+                style={styles.cta}
+                onPress={handleViewProduct}
+              >
+                <Text style={styles.ctaText}>VER PRODUCTO</Text>
+                <Ionicons name="arrow-forward" size={18} color={colors.onPrimary} />
               </TouchableOpacity>
             )}
             {story.type === 'promo' && (
-              <TouchableOpacity style={styles.actionButton} onPress={handleUsePromo}>
-                <Text style={styles.actionButtonText}>Usar promocion</Text>
-                <Ionicons name="arrow-forward" size={20} color={COLORS.white} />
+              <TouchableOpacity
+                activeOpacity={0.88}
+                style={styles.cta}
+                onPress={handleUsePromo}
+              >
+                <Text style={styles.ctaText}>USAR PROMOCIÓN</Text>
+                <Ionicons name="arrow-forward" size={18} color={colors.onPrimary} />
               </TouchableOpacity>
             )}
             {story.type === 'image' && (
               <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => navigation.navigate('RestaurantDetail', { restaurantId: restaurant.restaurantId })}
+                activeOpacity={0.88}
+                style={styles.cta}
+                onPress={() =>
+                  navigation.navigate('RestaurantDetail', {
+                    restaurantId: restaurant.restaurantId,
+                  })
+                }
               >
-                <Text style={styles.actionButtonText}>Ver restaurante</Text>
-                <Ionicons name="arrow-forward" size={20} color={COLORS.white} />
+                <Text style={styles.ctaText}>VER RESTAURANTE</Text>
+                <Ionicons name="arrow-forward" size={18} color={colors.onPrimary} />
               </TouchableOpacity>
             )}
-          </View>
 
-          {/* Swipe Indicator */}
-          <View style={styles.swipeIndicator}>
-            <Ionicons name="chevron-up" size={24} color={COLORS.white} />
-            <Text style={styles.swipeText}>Desliza para ver menu</Text>
+            <View style={styles.swipeIndicator}>
+              <Ionicons name="chevron-up" size={16} color={colors.textMuted} />
+              <Text style={styles.swipeText}>Desliza para ver menú</Text>
+            </View>
           </View>
         </View>
       </TouchableWithoutFeedback>
@@ -339,172 +363,203 @@ export default function StoriesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.black,
-  },
-  storyContent: {
-    flex: 1,
-  },
+  container: { flex: 1, backgroundColor: colors.bg },
+  storyContent: { flex: 1, backgroundColor: colors.bg },
 
-  // Progress bars
+  // ============ PROGRESS ============
   progressContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 8,
+    paddingHorizontal: s.xs,
     paddingTop: 50,
     gap: 4,
   },
-  progressBarBackground: {
+  progressBarBg: {
     flex: 1,
     height: 3,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: 2,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: COLORS.white,
+    backgroundColor: colors.text,
     borderRadius: 2,
   },
 
-  // Header
+  // ============ HEADER ============
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingHorizontal: s.md,
+    paddingTop: s.sm,
   },
   restaurantInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: s.xs,
+    flex: 1,
   },
   restaurantLogo: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.white,
-    justifyContent: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  restaurantLogoEmoji: {
-    fontSize: 20,
+  restaurantLogoEmoji: { fontSize: 20 },
+  headerEyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
   },
   restaurantName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.white,
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
+    marginTop: 2,
   },
   closeButton: {
     width: 40,
     height: 40,
-    justifyContent: 'center',
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
+    justifyContent: 'center',
   },
 
-  // Story Body
+  // ============ BODY ============
   storyBody: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    paddingHorizontal: s.xl,
   },
   storyEmoji: {
-    fontSize: 80,
-    marginBottom: 24,
+    fontSize: 96,
+    marginBottom: s.lg,
+  },
+  discountBadge: {
+    alignItems: 'center',
+    marginBottom: s.md,
+  },
+  discountText: {
+    color: colors.primary,
+    fontSize: 72,
+    fontWeight: fontWeight.black,
+    letterSpacing: -3,
+    lineHeight: 76,
+  },
+  discountLabel: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+    marginTop: -4,
   },
   storyTitle: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: COLORS.white,
+    color: colors.text,
+    fontSize: 32,
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.8,
     textAlign: 'center',
-    marginBottom: 8,
+    lineHeight: 38,
   },
   storySubtitle: {
-    fontSize: 18,
-    color: COLORS.white,
-    opacity: 0.9,
+    color: colors.textMuted,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.medium,
     textAlign: 'center',
+    marginTop: s.xs,
+    lineHeight: 22,
   },
   priceTag: {
-    backgroundColor: COLORS.white,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 30,
-    marginTop: 20,
+    paddingHorizontal: s.lg,
+    paddingVertical: s.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+    marginTop: s.lg,
+    ...shadows.glow,
   },
   priceText: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: COLORS.primary,
+    color: colors.onPrimary,
+    fontSize: fontSize['2xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.5,
   },
   promoCodeContainer: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginTop: 20,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: 'rgba(255,194,14,0.4)',
+    borderStyle: 'dashed',
+    paddingHorizontal: s.lg,
+    paddingVertical: s.sm,
+    borderRadius: radius.md,
+    marginTop: s.lg,
     alignItems: 'center',
   },
   promoCodeLabel: {
-    fontSize: 12,
-    color: COLORS.white,
-    opacity: 0.8,
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
   },
   promoCodeText: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: COLORS.white,
-    letterSpacing: 3,
+    color: colors.primary,
+    fontSize: fontSize['2xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: tracking.wider,
     marginTop: 4,
   },
 
-  // Touch areas
+  // ============ TAP AREAS ============
   touchAreas: {
     position: 'absolute',
     top: 100,
-    bottom: 200,
+    bottom: 180,
     left: 0,
     right: 0,
     flexDirection: 'row',
   },
-  touchLeft: {
-    flex: 1,
-  },
-  touchRight: {
-    flex: 2,
-  },
+  touchLeft: { flex: 1 },
+  touchRight: { flex: 2 },
 
-  // Bottom Action
+  // ============ BOTTOM ============
   bottomAction: {
-    paddingHorizontal: 24,
-    paddingBottom: 16,
+    paddingHorizontal: s.xl,
+    paddingBottom: s.xl,
+    gap: s.sm,
   },
-  actionButton: {
+  cta: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingVertical: 16,
-    borderRadius: 12,
-    gap: 8,
+    backgroundColor: colors.primary,
+    paddingVertical: s.md,
+    borderRadius: radius.lg,
+    gap: s.xs,
+    ...shadows.glow,
   },
-  actionButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.white,
+  ctaText: {
+    color: colors.onPrimary,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.black,
+    letterSpacing: tracking.widest,
   },
-
-  // Swipe Indicator
   swipeIndicator: {
     alignItems: 'center',
-    paddingBottom: 40,
+    gap: 2,
   },
   swipeText: {
-    fontSize: 12,
-    color: COLORS.white,
-    opacity: 0.7,
-    marginTop: 4,
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
   },
 });

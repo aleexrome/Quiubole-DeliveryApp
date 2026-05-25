@@ -1,237 +1,269 @@
 // ==========================================
-// TERMS SCREEN - TERMINOS Y CONDICIONES
+// DEVOLÓN — Términos y condiciones
+//
+// Layout editorial premium en dark mode: numeración grande amarilla por
+// sección, párrafos claros, bullets tipográficos consistentes.
 // ==========================================
 
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { Screen, Header } from '../../components/ui';
+import { colors, s, fontSize, fontWeight, tracking } from '../../theme';
 
-const COLORS = {
-  primary: '#FF6B35',
-  background: '#F8F9FA',
-  white: '#FFFFFF',
-  gray: '#6C757D',
-  text: '#212529',
-  lightGray: '#E9ECEF',
+type Section = {
+  number: string;
+  title: string;
+  paragraphs?: string[];
+  bullets?: string[];
+  subSections?: { title: string; bullets: string[] }[];
 };
 
+const SECTIONS: Section[] = [
+  {
+    number: '01',
+    title: 'Aceptación de los términos',
+    paragraphs: [
+      'Al acceder y utilizar la aplicación Devolón ("la App"), aceptas estar sujeto a estos Términos y Condiciones. Si no estás de acuerdo con alguna parte, no podrás acceder al servicio.',
+    ],
+  },
+  {
+    number: '02',
+    title: 'Descripción del servicio',
+    paragraphs: [
+      'Devolón es una plataforma que conecta usuarios con restaurantes y repartidores independientes para facilitar la entrega de alimentos a domicilio. Devolón no es un servicio de entrega directo ni un restaurante.',
+    ],
+  },
+  {
+    number: '03',
+    title: 'Registro y cuenta',
+    paragraphs: [
+      'Para usar nuestros servicios debes crear una cuenta con información veraz y actualizada. Eres responsable de mantener la confidencialidad de tu cuenta y contraseña.',
+    ],
+    bullets: [
+      'Debes ser mayor de 18 años para crear una cuenta',
+      'La información proporcionada debe ser precisa',
+      'No puedes compartir tu cuenta con terceros',
+      'Debes notificar cualquier uso no autorizado',
+    ],
+  },
+  {
+    number: '04',
+    title: 'Uso del servicio',
+    paragraphs: ['Al usar Devolón, aceptas:'],
+    bullets: [
+      'Usar el servicio solo para fines legales',
+      'No interferir con el funcionamiento de la plataforma',
+      'No crear cuentas falsas o fraudulentas',
+      'Respetar a los restaurantes y repartidores',
+      'Proporcionar direcciones de entrega precisas',
+    ],
+  },
+  {
+    number: '05',
+    title: 'Pedidos y pagos',
+    paragraphs: [
+      'Los precios mostrados incluyen impuestos aplicables. La tarifa de envío y servicio se calcula según la distancia y otros factores. Los pedidos son finales una vez confirmados por el restaurante.',
+    ],
+    subSections: [
+      {
+        title: 'Métodos de pago aceptados',
+        bullets: ['Tarjeta de crédito/débito', 'Pago en OXXO', 'Efectivo (sujeto a disponibilidad)'],
+      },
+    ],
+  },
+  {
+    number: '06',
+    title: 'Cancelaciones y reembolsos',
+    paragraphs: [
+      'Puedes cancelar un pedido sin cargo antes de que el restaurante confirme la preparación. Una vez en preparación, las cancelaciones pueden estar sujetas a cargos parciales o totales.',
+      'Los reembolsos se procesan en un plazo de 5–10 días hábiles al método de pago original.',
+    ],
+  },
+  {
+    number: '07',
+    title: 'Calidad de los productos',
+    paragraphs: [
+      'Devolón no es responsable de la calidad, presentación o sabor de los alimentos, ya que estos son preparados por restaurantes independientes. Cualquier queja sobre la comida debe dirigirse al restaurante correspondiente a través de nuestra plataforma.',
+    ],
+  },
+  {
+    number: '08',
+    title: 'Propiedad intelectual',
+    paragraphs: [
+      'Todo el contenido de la App, incluyendo logos, diseños, textos y software, es propiedad de Devolón o sus licenciantes. No puedes copiar, modificar o distribuir ningún contenido sin autorización previa.',
+    ],
+  },
+  {
+    number: '09',
+    title: 'Limitación de responsabilidad',
+    paragraphs: [
+      'Devolón no será responsable por daños indirectos, incidentales o consecuentes que surjan del uso del servicio. Nuestra responsabilidad máxima se limita al monto pagado por el pedido en cuestión.',
+    ],
+  },
+  {
+    number: '10',
+    title: 'Modificaciones',
+    paragraphs: [
+      'Nos reservamos el derecho de modificar estos términos en cualquier momento. Los cambios entrarán en vigor al publicarse en la App. El uso continuado del servicio constituye aceptación de los términos modificados.',
+    ],
+  },
+  {
+    number: '11',
+    title: 'Ley aplicable',
+    paragraphs: [
+      'Estos términos se rigen por las leyes de los Estados Unidos Mexicanos. Cualquier disputa será sometida a los tribunales competentes de la Ciudad de México.',
+    ],
+  },
+  {
+    number: '12',
+    title: 'Contacto',
+    paragraphs: ['Para preguntas sobre estos términos, contáctanos:'],
+    bullets: ['Email: legal@devolon.com', 'Teléfono: 55 1234 5678'],
+  },
+];
+
 export default function TermsScreen() {
-  const navigation = useNavigation();
-
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Terminos y Condiciones</Text>
-        <View style={{ width: 40 }} />
-      </View>
+    <Screen padded={false}>
+      <Header title="Términos" eyebrow="LEGAL" />
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.intro}>
+          Última actualización: noviembre 2024
+        </Text>
+        <Text style={styles.heroTitle}>
+          Reglas claras{'\n'}para una entrega justa.
+        </Text>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.lastUpdate}>Ultima actualizacion: Noviembre 2024</Text>
+        {SECTIONS.map((section) => (
+          <View key={section.number} style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionNumber}>{section.number}</Text>
+              <View style={styles.sectionTitleBlock}>
+                <Text style={styles.sectionTitle}>{section.title}</Text>
+                <View style={styles.sectionDivider} />
+              </View>
+            </View>
+            {section.paragraphs?.map((p, i) => (
+              <Text key={i} style={styles.paragraph}>
+                {p}
+              </Text>
+            ))}
+            {section.bullets?.map((b, i) => (
+              <View key={i} style={styles.bulletRow}>
+                <View style={styles.bulletDot} />
+                <Text style={styles.bullet}>{b}</Text>
+              </View>
+            ))}
+            {section.subSections?.map((sub, i) => (
+              <View key={i} style={styles.subSection}>
+                <Text style={styles.subSectionTitle}>{sub.title}</Text>
+                {sub.bullets.map((b, j) => (
+                  <View key={j} style={styles.bulletRow}>
+                    <View style={styles.bulletDot} />
+                    <Text style={styles.bullet}>{b}</Text>
+                  </View>
+                ))}
+              </View>
+            ))}
+          </View>
+        ))}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>1. Aceptacion de los Terminos</Text>
-          <Text style={styles.paragraph}>
-            Al acceder y utilizar la aplicacion Quiubole! ("la App"), usted acepta estar sujeto a estos
-            Terminos y Condiciones. Si no esta de acuerdo con alguna parte de estos terminos, no podra
-            acceder al servicio.
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>2. Descripcion del Servicio</Text>
-          <Text style={styles.paragraph}>
-            Quiubole! es una plataforma de intermediacion que conecta usuarios con restaurantes y
-            repartidores independientes para facilitar la entrega de alimentos a domicilio. Quiubole!
-            no es un servicio de entrega directo ni un restaurante.
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>3. Registro y Cuenta</Text>
-          <Text style={styles.paragraph}>
-            Para utilizar nuestros servicios, debe crear una cuenta proporcionando informacion veraz
-            y actualizada. Usted es responsable de mantener la confidencialidad de su cuenta y contrasena.
-          </Text>
-          <Text style={styles.bulletPoint}>• Debe ser mayor de 18 anos para crear una cuenta</Text>
-          <Text style={styles.bulletPoint}>• La informacion proporcionada debe ser precisa</Text>
-          <Text style={styles.bulletPoint}>• No puede compartir su cuenta con terceros</Text>
-          <Text style={styles.bulletPoint}>• Debe notificar cualquier uso no autorizado</Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>4. Uso del Servicio</Text>
-          <Text style={styles.paragraph}>
-            Al usar Quiubole!, usted acepta:
-          </Text>
-          <Text style={styles.bulletPoint}>• Usar el servicio solo para fines legales</Text>
-          <Text style={styles.bulletPoint}>• No interferir con el funcionamiento de la plataforma</Text>
-          <Text style={styles.bulletPoint}>• No crear cuentas falsas o fraudulentas</Text>
-          <Text style={styles.bulletPoint}>• Respetar a los restaurantes y repartidores</Text>
-          <Text style={styles.bulletPoint}>• Proporcionar direcciones de entrega precisas</Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>5. Pedidos y Pagos</Text>
-          <Text style={styles.paragraph}>
-            Los precios mostrados incluyen impuestos aplicables. La tarifa de envio y servicio se
-            calcula segun la distancia y otros factores. Los pedidos son finales una vez confirmados
-            por el restaurante.
-          </Text>
-          <Text style={styles.subSection}>Metodos de pago aceptados:</Text>
-          <Text style={styles.bulletPoint}>• Tarjeta de credito/debito</Text>
-          <Text style={styles.bulletPoint}>• Pago en OXXO</Text>
-          <Text style={styles.bulletPoint}>• Efectivo (sujeto a disponibilidad)</Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>6. Cancelaciones y Reembolsos</Text>
-          <Text style={styles.paragraph}>
-            Puede cancelar un pedido sin cargo antes de que el restaurante confirme la preparacion.
-            Una vez que el pedido esta siendo preparado, las cancelaciones pueden estar sujetas a
-            cargos parciales o totales.
-          </Text>
-          <Text style={styles.paragraph}>
-            Los reembolsos se procesan en un plazo de 5-10 dias habiles al metodo de pago original.
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>7. Calidad de los Productos</Text>
-          <Text style={styles.paragraph}>
-            Quiubole! no es responsable de la calidad, presentacion o sabor de los alimentos, ya que
-            estos son preparados por restaurantes independientes. Cualquier queja sobre la comida
-            debe dirigirse al restaurante correspondiente a traves de nuestra plataforma.
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>8. Propiedad Intelectual</Text>
-          <Text style={styles.paragraph}>
-            Todo el contenido de la App, incluyendo logos, disenos, textos y software, es propiedad
-            de Quiubole! o sus licenciantes. No puede copiar, modificar o distribuir ningun contenido
-            sin autorizacion previa.
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>9. Limitacion de Responsabilidad</Text>
-          <Text style={styles.paragraph}>
-            Quiubole! no sera responsable por danos indirectos, incidentales o consecuentes que
-            surjan del uso del servicio. Nuestra responsabilidad maxima se limita al monto pagado
-            por el pedido en cuestion.
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>10. Modificaciones</Text>
-          <Text style={styles.paragraph}>
-            Nos reservamos el derecho de modificar estos terminos en cualquier momento. Los cambios
-            entraran en vigor al publicarse en la App. El uso continuado del servicio constituye
-            aceptacion de los terminos modificados.
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>11. Ley Aplicable</Text>
-          <Text style={styles.paragraph}>
-            Estos terminos se rigen por las leyes de los Estados Unidos Mexicanos. Cualquier disputa
-            sera sometida a los tribunales competentes de la Ciudad de Mexico.
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>12. Contacto</Text>
-          <Text style={styles.paragraph}>
-            Para preguntas sobre estos terminos, contactenos en:
-          </Text>
-          <Text style={styles.contactInfo}>Email: legal@quiubole.com</Text>
-          <Text style={styles.contactInfo}>Telefono: 55 1234 5678</Text>
-        </View>
-
-        <View style={{ height: 50 }} />
+        <View style={{ height: s['3xl'] }} />
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
+  scroll: { flex: 1 },
+  content: { paddingHorizontal: s.xl, paddingTop: s.md },
+  intro: {
+    color: colors.textFaint,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+    textTransform: 'uppercase',
+    marginBottom: s.sm,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  content: {
-    flex: 1,
-    padding: 16,
-  },
-  lastUpdate: {
-    fontSize: 12,
-    color: COLORS.gray,
-    marginBottom: 20,
-    fontStyle: 'italic',
+  heroTitle: {
+    color: colors.text,
+    fontSize: fontSize['3xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.8,
+    lineHeight: 36,
+    marginBottom: s['2xl'],
   },
   section: {
-    marginBottom: 24,
+    marginBottom: s['2xl'],
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: s.md,
+    marginBottom: s.sm,
+  },
+  sectionNumber: {
+    color: colors.primary,
+    fontSize: fontSize['2xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.4,
+    width: 36,
+  },
+  sectionTitleBlock: { flex: 1, paddingTop: 2 },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 8,
+    color: colors.text,
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.3,
+    marginBottom: s.xs,
   },
-  subSection: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginTop: 8,
-    marginBottom: 4,
+  sectionDivider: {
+    height: 1,
+    backgroundColor: colors.border,
   },
   paragraph: {
-    fontSize: 14,
-    color: COLORS.gray,
+    color: colors.textMuted,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.medium,
     lineHeight: 22,
-    marginBottom: 8,
+    marginTop: s.xs,
+    paddingLeft: 52,
   },
-  bulletPoint: {
-    fontSize: 14,
-    color: COLORS.gray,
-    lineHeight: 24,
-    paddingLeft: 8,
+  bulletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: s.sm,
+    marginTop: s.xs,
+    paddingLeft: 52,
   },
-  contactInfo: {
-    fontSize: 14,
-    color: COLORS.primary,
-    marginTop: 4,
+  bulletDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: colors.primary,
+    marginTop: 9,
+  },
+  bullet: {
+    flex: 1,
+    color: colors.textMuted,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.medium,
+    lineHeight: 22,
+  },
+  subSection: {
+    marginTop: s.sm,
+    paddingLeft: 52,
+  },
+  subSectionTitle: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.2,
+    marginTop: s.xs,
+    marginBottom: s.xs,
   },
 });

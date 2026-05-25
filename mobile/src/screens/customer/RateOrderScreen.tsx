@@ -1,5 +1,10 @@
 // ==========================================
-// RATE ORDER SCREEN - CALIFICAR PEDIDO
+// DEVOLÓN — Rate Order
+//
+// Calificación post-entrega en dark. Header con close + skip. Restaurante
+// y repartidor en cards glass con estrellas amarillas grandes (cinema feel).
+// Tags pill seleccionables, recomendación thumbs up/down, comentario en
+// Input filled multiline. CTA primario "ENVIAR CALIFICACIÓN" flotante.
 // ==========================================
 
 import React, { useState } from 'react';
@@ -9,104 +14,107 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Image,
   Alert,
-  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { Button, Card, Input } from '../../components/ui';
+import {
+  colors,
+  s,
+  radius,
+  shadows,
+  fontSize,
+  fontWeight,
+  tracking,
+} from '../../theme';
 
-// Colores de la marca
-const COLORS = {
-  primary: '#FF6B35',
-  secondary: '#2E4057',
-  background: '#F8F9FA',
-  white: '#FFFFFF',
-  gray: '#6C757D',
-  lightGray: '#E9ECEF',
-  text: '#212529',
-  textLight: '#6C757D',
-  success: '#4CAF50',
-  star: '#FFD700',
-  starEmpty: '#E0E0E0',
-};
-
-// Tags predefinidos
+// ============ Predefined Tags ============
 const POSITIVE_TAGS = [
   'Comida deliciosa',
   'Buen precio',
-  'Rapido',
-  'Buena presentacion',
+  'Rápido',
+  'Buena presentación',
   'Porciones generosas',
   'Excelente servicio',
 ];
 
 const NEGATIVE_TAGS = [
-  'Tardo mucho',
-  'Comida fria',
+  'Tardó mucho',
+  'Comida fría',
   'Mal empacado',
   'Pedido incorrecto',
-  'Porciones pequenas',
+  'Porciones pequeñas',
 ];
 
 const DRIVER_POSITIVE_TAGS = [
   'Muy amable',
   'Entrega puntual',
-  'Buena comunicacion',
+  'Buena comunicación',
   'Cuidadoso con el pedido',
 ];
 
 const DRIVER_NEGATIVE_TAGS = [
-  'Llego tarde',
+  'Llegó tarde',
   'Mala actitud',
   'Sin seguimiento',
-  'Pedido danado',
+  'Pedido dañado',
 ];
 
-// Componente de estrellas
+// ============ Star Rating ============
 const StarRating = ({
   rating,
   onRate,
-  size = 36,
+  size = 38,
   label,
 }: {
   rating: number;
   onRate: (rating: number) => void;
   size?: number;
   label?: string;
-}) => (
-  <View style={styles.starContainer}>
-    {label && <Text style={styles.starLabel}>{label}</Text>}
-    <View style={styles.starsRow}>
-      {[1, 2, 3, 4, 5].map(star => (
-        <TouchableOpacity key={star} onPress={() => onRate(star)} style={styles.starButton}>
-          <Ionicons
-            name={star <= rating ? 'star' : 'star-outline'}
-            size={size}
-            color={star <= rating ? COLORS.star : COLORS.starEmpty}
-          />
-        </TouchableOpacity>
-      ))}
-    </View>
-    <Text style={styles.ratingText}>
-      {rating === 0
-        ? 'Toca para calificar'
-        : rating === 1
-        ? 'Muy malo'
-        : rating === 2
-        ? 'Malo'
-        : rating === 3
-        ? 'Regular'
-        : rating === 4
-        ? 'Bueno'
-        : 'Excelente'}
-    </Text>
-  </View>
-);
+}) => {
+  const ratingLabel =
+    rating === 0
+      ? 'Toca para calificar'
+      : rating === 1
+      ? 'Muy malo'
+      : rating === 2
+      ? 'Malo'
+      : rating === 3
+      ? 'Regular'
+      : rating === 4
+      ? 'Bueno'
+      : 'Excelente';
 
-// Componente de tags seleccionables
+  return (
+    <View style={styles.starContainer}>
+      {label && <Text style={styles.starLabel}>{label}</Text>}
+      <View style={styles.starsRow}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <TouchableOpacity
+            key={star}
+            onPress={() => onRate(star)}
+            style={styles.starButton}
+            activeOpacity={0.85}
+          >
+            <Ionicons
+              name={star <= rating ? 'star' : 'star-outline'}
+              size={size}
+              color={star <= rating ? colors.primary : colors.textFaint}
+            />
+          </TouchableOpacity>
+        ))}
+      </View>
+      <Text style={[styles.ratingText, rating > 0 && styles.ratingTextActive]}>
+        {ratingLabel}
+      </Text>
+    </View>
+  );
+};
+
+// ============ Tag Selector ============
 const TagSelector = ({
   tags,
   selectedTags,
@@ -121,17 +129,19 @@ const TagSelector = ({
   <View style={styles.tagSection}>
     <Text style={styles.tagTitle}>{title}</Text>
     <View style={styles.tagsContainer}>
-      {tags.map(tag => (
-        <TouchableOpacity
-          key={tag}
-          style={[styles.tag, selectedTags.includes(tag) && styles.tagSelected]}
-          onPress={() => onToggle(tag)}
-        >
-          <Text style={[styles.tagText, selectedTags.includes(tag) && styles.tagTextSelected]}>
-            {tag}
-          </Text>
-        </TouchableOpacity>
-      ))}
+      {tags.map((tag) => {
+        const active = selectedTags.includes(tag);
+        return (
+          <TouchableOpacity
+            key={tag}
+            style={[styles.tag, active && styles.tagSelected]}
+            onPress={() => onToggle(tag)}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.tagText, active && styles.tagTextSelected]}>{tag}</Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   </View>
 );
@@ -141,18 +151,17 @@ export default function RateOrderScreen() {
   const route = useRoute<any>();
   const { orderId } = route.params || {};
 
-  // Mock order data - En produccion vendria de la API
   const order = {
     id: orderId || '1',
-    orderNumber: 'QUB-001234',
+    orderNumber: 'DVL-001234',
     restaurant: {
       id: '1',
-      name: 'Tacos El Patron',
+      name: 'Tacos El Patrón',
       logo: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=200',
     },
     driver: {
       id: '1',
-      name: 'Carlos Martinez',
+      name: 'Carlos Martínez',
       avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
     },
   };
@@ -165,41 +174,27 @@ export default function RateOrderScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const toggleTag = (tag: string) => {
-    setSelectedTags(prev =>
-      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
     );
   };
 
   const handleSubmit = async () => {
     if (restaurantRating === 0) {
-      Alert.alert('Calificacion requerida', 'Por favor califica al restaurante');
+      Alert.alert('Calificación requerida', 'Por favor califica al restaurante');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // TODO: Enviar a la API
-      // await api.post('/reviews', {
-      //   orderId: order.id,
-      //   restaurantId: order.restaurant.id,
-      //   driverId: order.driver.id,
-      //   restaurantRating,
-      //   driverRating,
-      //   overallRating: Math.round((restaurantRating + (driverRating || restaurantRating)) / 2),
-      //   tags: selectedTags,
-      //   comment,
-      //   wouldRecommend,
-      // });
-
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       Alert.alert(
-        'Gracias por tu opinion!',
-        'Tu calificacion nos ayuda a mejorar el servicio',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
+        '¡Gracias por tu opinión!',
+        'Tu calificación nos ayuda a mejorar el servicio',
+        [{ text: 'OK', onPress: () => navigation.goBack() }],
       );
     } catch (error) {
-      Alert.alert('Error', 'No se pudo enviar tu calificacion. Intenta de nuevo.');
+      Alert.alert('Error', 'No se pudo enviar tu calificación. Intenta de nuevo.');
     } finally {
       setIsSubmitting(false);
     }
@@ -207,102 +202,122 @@ export default function RateOrderScreen() {
 
   const handleSkip = () => {
     Alert.alert(
-      'Omitir calificacion',
-      'Puedes calificar este pedido mas tarde desde tu historial',
+      'Omitir calificación',
+      'Puedes calificar este pedido más tarde desde tu historial',
       [
         { text: 'Cancelar', style: 'cancel' },
         { text: 'Omitir', onPress: () => navigation.goBack() },
-      ]
+      ],
     );
   };
 
-  // Tags a mostrar basados en la calificacion
-  const restaurantTags = restaurantRating >= 4 ? POSITIVE_TAGS : restaurantRating > 0 ? NEGATIVE_TAGS : [];
-  const driverTags = driverRating >= 4 ? DRIVER_POSITIVE_TAGS : driverRating > 0 ? DRIVER_NEGATIVE_TAGS : [];
+  const restaurantTags =
+    restaurantRating >= 4 ? POSITIVE_TAGS : restaurantRating > 0 ? NEGATIVE_TAGS : [];
+  const driverTags =
+    driverRating >= 4 ? DRIVER_POSITIVE_TAGS : driverRating > 0 ? DRIVER_NEGATIVE_TAGS : [];
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* ============ Header ============ */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="close" size={24} color={COLORS.text} />
+        <TouchableOpacity
+          style={styles.headerIcon}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="close" size={22} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Calificar pedido</Text>
-        <TouchableOpacity onPress={handleSkip}>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerEyebrow}>FEEDBACK</Text>
+          <Text style={styles.headerTitle}>Calificar pedido</Text>
+        </View>
+        <TouchableOpacity onPress={handleSkip} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Text style={styles.skipText}>Omitir</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Order Info */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 140 }}
+      >
+        {/* ============ Order Info ============ */}
         <View style={styles.orderInfo}>
+          <View style={styles.orderInfoIcon}>
+            <Ionicons name="checkmark-done" size={22} color={colors.success} />
+          </View>
           <Text style={styles.orderNumber}>{order.orderNumber}</Text>
           <Text style={styles.orderComplete}>Pedido completado</Text>
         </View>
 
-        {/* Restaurant Rating */}
-        <View style={styles.section}>
-          <View style={styles.entityHeader}>
-            <Image source={{ uri: order.restaurant.logo }} style={styles.entityImage} />
-            <View style={styles.entityInfo}>
-              <Text style={styles.entityName}>{order.restaurant.name}</Text>
-              <Text style={styles.entityLabel}>Restaurante</Text>
+        {/* ============ Restaurant Rating ============ */}
+        <View style={styles.sectionWrap}>
+          <Card variant="glass" padding={s.lg} borderRadius={radius['2xl']}>
+            <View style={styles.entityHeader}>
+              <Image source={{ uri: order.restaurant.logo }} style={styles.entityImage} />
+              <View style={styles.entityInfo}>
+                <Text style={styles.entityLabel}>RESTAURANTE</Text>
+                <Text style={styles.entityName}>{order.restaurant.name}</Text>
+              </View>
             </View>
-          </View>
-          <StarRating
-            rating={restaurantRating}
-            onRate={setRestaurantRating}
-            label="Como estuvo la comida?"
-          />
-          {restaurantTags.length > 0 && (
-            <TagSelector
-              tags={restaurantTags}
-              selectedTags={selectedTags}
-              onToggle={toggleTag}
-              title="Que te parecio?"
+            <StarRating
+              rating={restaurantRating}
+              onRate={setRestaurantRating}
+              label="¿Cómo estuvo la comida?"
             />
-          )}
+            {restaurantTags.length > 0 && (
+              <TagSelector
+                tags={restaurantTags}
+                selectedTags={selectedTags}
+                onToggle={toggleTag}
+                title="¿Qué te pareció?"
+              />
+            )}
+          </Card>
         </View>
 
-        {/* Driver Rating */}
-        <View style={styles.section}>
-          <View style={styles.entityHeader}>
-            <Image source={{ uri: order.driver.avatar }} style={styles.entityImage} />
-            <View style={styles.entityInfo}>
-              <Text style={styles.entityName}>{order.driver.name}</Text>
-              <Text style={styles.entityLabel}>Repartidor</Text>
+        {/* ============ Driver Rating ============ */}
+        <View style={styles.sectionWrap}>
+          <Card variant="glass" padding={s.lg} borderRadius={radius['2xl']}>
+            <View style={styles.entityHeader}>
+              <Image source={{ uri: order.driver.avatar }} style={styles.entityImage} />
+              <View style={styles.entityInfo}>
+                <Text style={styles.entityLabel}>REPARTIDOR</Text>
+                <Text style={styles.entityName}>{order.driver.name}</Text>
+              </View>
             </View>
-          </View>
-          <StarRating
-            rating={driverRating}
-            onRate={setDriverRating}
-            label="Como fue la entrega?"
-          />
-          {driverTags.length > 0 && (
-            <TagSelector
-              tags={driverTags}
-              selectedTags={selectedTags}
-              onToggle={toggleTag}
-              title="Que te parecio?"
+            <StarRating
+              rating={driverRating}
+              onRate={setDriverRating}
+              label="¿Cómo fue la entrega?"
             />
-          )}
+            {driverTags.length > 0 && (
+              <TagSelector
+                tags={driverTags}
+                selectedTags={selectedTags}
+                onToggle={toggleTag}
+                title="¿Qué te pareció?"
+              />
+            )}
+          </Card>
         </View>
 
-        {/* Would Recommend */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recomendarias este restaurante?</Text>
-          <View style={styles.recommendButtons}>
+        {/* ============ Recommend ============ */}
+        <View style={styles.sectionWrap}>
+          <Text style={styles.sectionEyebrow}>RECOMENDACIÓN</Text>
+          <Text style={styles.sectionTitle}>¿Recomendarías este restaurante?</Text>
+          <View style={styles.recommendRow}>
             <TouchableOpacity
               style={[
-                styles.recommendButton,
-                wouldRecommend === true && styles.recommendButtonActive,
+                styles.recommendBtn,
+                wouldRecommend === true && styles.recommendBtnYes,
               ]}
               onPress={() => setWouldRecommend(true)}
+              activeOpacity={0.88}
             >
               <Ionicons
                 name="thumbs-up"
-                size={24}
-                color={wouldRecommend === true ? COLORS.white : COLORS.success}
+                size={22}
+                color={wouldRecommend === true ? colors.text : colors.success}
               />
               <Text
                 style={[
@@ -310,20 +325,21 @@ export default function RateOrderScreen() {
                   wouldRecommend === true && styles.recommendTextActive,
                 ]}
               >
-                Si
+                Sí
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
-                styles.recommendButton,
-                wouldRecommend === false && styles.recommendButtonNegative,
+                styles.recommendBtn,
+                wouldRecommend === false && styles.recommendBtnNo,
               ]}
               onPress={() => setWouldRecommend(false)}
+              activeOpacity={0.88}
             >
               <Ionicons
                 name="thumbs-down"
-                size={24}
-                color={wouldRecommend === false ? COLORS.white : COLORS.gray}
+                size={22}
+                color={wouldRecommend === false ? colors.text : colors.textMuted}
               />
               <Text
                 style={[
@@ -337,39 +353,37 @@ export default function RateOrderScreen() {
           </View>
         </View>
 
-        {/* Comment */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Comentario adicional (opcional)</Text>
-          <TextInput
-            style={styles.commentInput}
-            placeholder="Cuentanos mas sobre tu experiencia..."
-            placeholderTextColor={COLORS.gray}
+        {/* ============ Comment ============ */}
+        <View style={styles.sectionWrap}>
+          <Text style={styles.sectionEyebrow}>OPCIONAL</Text>
+          <Text style={styles.sectionTitle}>Comentario adicional</Text>
+          <Input
+            variant="filled"
+            placeholder="Cuéntanos más sobre tu experiencia…"
             value={comment}
             onChangeText={setComment}
             multiline
             numberOfLines={4}
             maxLength={500}
+            containerStyle={styles.commentBox}
           />
           <Text style={styles.charCount}>{comment.length}/500</Text>
         </View>
-
-        <View style={{ height: 120 }} />
       </ScrollView>
 
-      {/* Submit Button */}
+      {/* ============ Floating CTA ============ */}
       <View style={styles.footer}>
         <TouchableOpacity
           style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
           onPress={handleSubmit}
           disabled={isSubmitting}
+          activeOpacity={0.88}
         >
-          {isSubmitting ? (
-            <ActivityIndicator color={COLORS.white} />
-          ) : (
-            <>
-              <Text style={styles.submitText}>Enviar calificacion</Text>
-              <Ionicons name="send" size={20} color={COLORS.white} />
-            </>
+          <Text style={styles.submitText}>
+            {isSubmitting ? 'ENVIANDO…' : 'ENVIAR CALIFICACIÓN'}
+          </Text>
+          {!isSubmitting && (
+            <Ionicons name="send" size={18} color={colors.onPrimary} />
           )}
         </TouchableOpacity>
       </View>
@@ -378,209 +392,273 @@ export default function RateOrderScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
+  container: { flex: 1, backgroundColor: colors.bg },
+
+  // ============ HEADER ============
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
+    paddingHorizontal: s.md,
+    height: 56,
+    gap: s.sm,
   },
-  backButton: {
+  headerIcon: {
     width: 40,
     height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  headerEyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+  },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.text,
+    color: colors.text,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
+    marginTop: 2,
   },
   skipText: {
-    fontSize: 14,
-    color: COLORS.gray,
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.3,
   },
-  content: {
-    flex: 1,
-  },
+
+  // ============ ORDER INFO ============
   orderInfo: {
     alignItems: 'center',
-    paddingVertical: 20,
-    backgroundColor: COLORS.white,
+    paddingVertical: s.xl,
+  },
+  orderInfoIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(31,174,111,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(31,174,111,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: s.sm,
   },
   orderNumber: {
-    fontSize: 14,
-    color: COLORS.gray,
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
   },
   orderComplete: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.success,
-    marginTop: 4,
+    color: colors.success,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
+    marginTop: 2,
   },
-  section: {
-    backgroundColor: COLORS.white,
-    marginTop: 8,
-    padding: 16,
+
+  // ============ SECTIONS ============
+  sectionWrap: {
+    paddingHorizontal: s.xl,
+    marginBottom: s.lg,
   },
+  sectionEyebrow: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+    textTransform: 'uppercase',
+  },
+  sectionTitle: {
+    color: colors.text,
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.3,
+    marginTop: 2,
+    marginBottom: s.md,
+  },
+
+  // ============ ENTITY ============
   entityHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    gap: s.sm,
+    marginBottom: s.lg,
   },
   entityImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 52,
+    height: 52,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  entityInfo: {
-    marginLeft: 12,
+  entityInfo: { flex: 1 },
+  entityLabel: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
   },
   entityName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  entityLabel: {
-    fontSize: 13,
-    color: COLORS.gray,
+    color: colors.text,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
     marginTop: 2,
   },
+
+  // ============ STARS ============
   starContainer: {
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: s.xs,
   },
   starLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 12,
+    color: colors.textMuted,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
+    marginBottom: s.md,
   },
   starsRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: s.xs,
   },
   starButton: {
-    padding: 4,
+    padding: 2,
   },
   ratingText: {
-    fontSize: 14,
-    color: COLORS.gray,
-    marginTop: 8,
+    color: colors.textFaint,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+    marginTop: s.md,
   },
+  ratingTextActive: {
+    color: colors.primary,
+  },
+
+  // ============ TAGS ============
   tagSection: {
-    marginTop: 16,
+    marginTop: s.lg,
+    paddingTop: s.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   tagTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 12,
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.3,
+    marginBottom: s.sm,
   },
   tagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: s.xs,
   },
   tag: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: COLORS.lightGray,
+    paddingHorizontal: s.md,
+    paddingVertical: s.xs,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bgRaised,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   tagSelected: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    borderColor: colors.primary,
   },
   tagText: {
-    fontSize: 13,
-    color: COLORS.text,
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
   },
   tagTextSelected: {
-    color: COLORS.white,
-    fontWeight: '600',
+    color: colors.primary,
+    fontWeight: fontWeight.heavy,
   },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 12,
-  },
-  recommendButtons: {
+
+  // ============ RECOMMEND ============
+  recommendRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: s.sm,
   },
-  recommendButton: {
+  recommendBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: COLORS.lightGray,
-    gap: 8,
+    paddingVertical: s.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: s.xs,
   },
-  recommendButtonActive: {
-    backgroundColor: COLORS.success,
+  recommendBtnYes: {
+    backgroundColor: colors.success,
+    borderColor: colors.success,
   },
-  recommendButtonNegative: {
-    backgroundColor: COLORS.gray,
+  recommendBtnNo: {
+    backgroundColor: colors.danger,
+    borderColor: colors.danger,
   },
   recommendText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.text,
+    color: colors.textMuted,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.black,
+    letterSpacing: 0.3,
   },
   recommendTextActive: {
-    color: COLORS.white,
+    color: colors.text,
   },
-  commentInput: {
-    backgroundColor: COLORS.lightGray,
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 14,
-    color: COLORS.text,
+
+  // ============ COMMENT ============
+  commentBox: {
     minHeight: 100,
-    textAlignVertical: 'top',
   },
   charCount: {
-    fontSize: 12,
-    color: COLORS.gray,
+    color: colors.textFaint,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
     textAlign: 'right',
-    marginTop: 4,
+    marginTop: s.xs,
   },
+
+  // ============ FOOTER ============
   footer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: COLORS.white,
-    padding: 16,
-    paddingBottom: 32,
+    paddingHorizontal: s.xl,
+    paddingTop: s.md,
+    paddingBottom: s['2xl'],
+    backgroundColor: colors.bg,
     borderTopWidth: 1,
-    borderTopColor: COLORS.lightGray,
+    borderTopColor: colors.border,
   },
   submitButton: {
-    backgroundColor: COLORS.primary,
+    height: 56,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 12,
-    gap: 8,
+    gap: s.sm,
+    ...shadows.glow,
   },
-  submitButtonDisabled: {
-    opacity: 0.7,
-  },
+  submitButtonDisabled: { opacity: 0.55 },
   submitText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.white,
+    color: colors.onPrimary,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.black,
+    letterSpacing: tracking.widest,
   },
 });

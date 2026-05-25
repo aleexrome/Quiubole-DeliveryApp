@@ -1,5 +1,7 @@
 // ==========================================
-// PANTALLA DE ESTADISTICAS DEL RESTAURANTE
+// DEVOLÓN — Restaurant Stats
+// Métricas históricas: período seleccionable, hero de ventas, secundarias,
+// gráfica de barras y top de productos vendidos.
 // ==========================================
 
 import React, { useState, useEffect } from 'react';
@@ -9,13 +11,20 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { restaurantsApi } from '../../services/api';
-
-const { width } = Dimensions.get('window');
+import { Card, Section } from '../../components/ui';
+import {
+  colors,
+  s,
+  radius,
+  fontSize,
+  fontWeight,
+  tracking,
+  shadows,
+} from '../../theme';
 
 type Period = 'day' | 'week' | 'month';
 
@@ -37,158 +46,297 @@ export default function RestaurantStatsScreen() {
 
   const loadStats = async () => {
     try {
-      const data = await restaurantsApi.getStats(period);
-      setStats(data);
+      // El backend devuelve { orders, revenue, rating, totalReviews, period }.
+      // El frontend espera un schema más rico (topProducts, revenueByDay,
+      // completedOrders, etc.) que aún no está implementado en backend.
+      // Mapeamos los campos disponibles y mergeamos con el initial state
+      // para garantizar que los arrays existan — evita crash de
+      // `revenueByDay.length` cuando llega undefined.
+      const raw: any = await restaurantsApi.getStats(period);
+      setStats((prev) => ({
+        ...prev,
+        totalOrders: raw?.orders ?? raw?.totalOrders ?? 0,
+        totalRevenue: parseFloat(raw?.revenue ?? raw?.totalRevenue ?? 0),
+        averageOrderValue:
+          raw?.averageOrderValue ??
+          (raw?.orders > 0
+            ? parseFloat(raw?.revenue || 0) / raw.orders
+            : 0),
+        completedOrders: raw?.completedOrders ?? raw?.orders ?? 0,
+        cancelledOrders: raw?.cancelledOrders ?? 0,
+        topProducts: Array.isArray(raw?.topProducts) ? raw.topProducts : [],
+        revenueByDay: Array.isArray(raw?.revenueByDay) ? raw.revenueByDay : [],
+      }));
     } catch (error) {
       console.error('Error loading stats:', error);
     }
   };
 
-  const formatCurrency = (amount: number) => `$${amount.toFixed(2)}`;
+  const formatCurrency = (amount: number | string | undefined | null) => {
+    const n = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return `$${(n ?? 0).toFixed(2)}`;
+  };
 
   const getMaxRevenue = () => {
-    if (!stats.revenueByDay.length) return 1;
-    return Math.max(...stats.revenueByDay.map(d => d.revenue));
+    // Defensive: arrays opcionales del backend pueden no venir.
+    if (!stats.revenueByDay || !stats.revenueByDay.length) return 1;
+    return Math.max(...stats.revenueByDay.map((d) => d.revenue));
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView>
-        {/* Header */}
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: s['4xl'] }}
+      >
+        {/* ============ HEADER ============ */}
         <View style={styles.header}>
-          <Text style={styles.title}>Estadisticas</Text>
+          <Text style={styles.eyebrow}>DEVOLÓN · MÉTRICAS</Text>
+          <Text style={styles.title}>Estadísticas</Text>
         </View>
 
-        {/* Period Selector */}
+        {/* ============ PERIOD SELECTOR ============ */}
         <View style={styles.periodSelector}>
           {(['day', 'week', 'month'] as Period[]).map((p) => (
             <TouchableOpacity
               key={p}
               style={[styles.periodBtn, period === p && styles.periodBtnActive]}
               onPress={() => setPeriod(p)}
+              activeOpacity={0.85}
             >
-              <Text style={[styles.periodText, period === p && styles.periodTextActive]}>
+              <Text
+                style={[
+                  styles.periodText,
+                  period === p && styles.periodTextActive,
+                ]}
+              >
                 {p === 'day' ? 'Hoy' : p === 'week' ? 'Semana' : 'Mes'}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Main Stats */}
-        <View style={styles.mainStats}>
-          <View style={styles.mainStatCard}>
-            <Ionicons name="cash" size={32} color="#22C55E" />
-            <Text style={styles.mainStatValue}>{formatCurrency(stats.totalRevenue)}</Text>
-            <Text style={styles.mainStatLabel}>Ventas Totales</Text>
-          </View>
-          <View style={styles.mainStatCard}>
-            <Ionicons name="receipt" size={32} color="#FF6B35" />
-            <Text style={styles.mainStatValue}>{stats.totalOrders}</Text>
-            <Text style={styles.mainStatLabel}>Pedidos</Text>
-          </View>
-        </View>
-
-        {/* Secondary Stats */}
-        <View style={styles.secondaryStats}>
-          <View style={styles.secondaryStatCard}>
-            <Text style={styles.secondaryStatLabel}>Ticket Promedio</Text>
-            <Text style={styles.secondaryStatValue}>
-              {formatCurrency(stats.averageOrderValue)}
+        <View style={styles.body}>
+          {/* ============ HERO STAT ============ */}
+          <Card
+            variant="raised"
+            padding={s.xl}
+            borderRadius={radius['2xl']}
+            style={styles.heroCard}
+          >
+            <Text style={styles.heroEyebrow}>VENTAS TOTALES</Text>
+            <Text style={styles.heroValue}>
+              {formatCurrency(stats.totalRevenue)}
             </Text>
-          </View>
-          <View style={styles.secondaryStatCard}>
-            <Text style={styles.secondaryStatLabel}>Completados</Text>
-            <Text style={[styles.secondaryStatValue, { color: '#22C55E' }]}>
-              {stats.completedOrders}
-            </Text>
-          </View>
-          <View style={styles.secondaryStatCard}>
-            <Text style={styles.secondaryStatLabel}>Cancelados</Text>
-            <Text style={[styles.secondaryStatValue, { color: '#EF4444' }]}>
-              {stats.cancelledOrders}
-            </Text>
-          </View>
-        </View>
-
-        {/* Revenue Chart */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Ventas por Dia</Text>
-          <View style={styles.chartContainer}>
-            {stats.revenueByDay.map((day, index) => (
-              <View key={index} style={styles.chartBar}>
-                <View style={styles.barContainer}>
-                  <View
-                    style={[
-                      styles.bar,
-                      {
-                        height: `${(day.revenue / getMaxRevenue()) * 100}%`,
-                      },
-                    ]}
-                  />
-                </View>
-                <Text style={styles.barLabel}>{day.day}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* Top Products */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Productos Mas Vendidos</Text>
-          {stats.topProducts.length === 0 ? (
-            <View style={styles.emptyProducts}>
-              <Text style={styles.emptyText}>Sin datos disponibles</Text>
+            <View style={styles.heroMeta}>
+              <Ionicons name="receipt-outline" size={13} color={colors.textMuted} />
+              <Text style={styles.heroMetaText}>
+                {stats.totalOrders} pedido{stats.totalOrders === 1 ? '' : 's'} ·{' '}
+                {formatCurrency(stats.averageOrderValue)} ticket promedio
+              </Text>
             </View>
-          ) : (
-            stats.topProducts.map((product, index) => (
-              <View key={index} style={styles.productRow}>
-                <View style={styles.productRank}>
-                  <Text style={styles.rankText}>{index + 1}</Text>
-                </View>
-                <View style={styles.productInfo}>
-                  <Text style={styles.productName}>{product.name}</Text>
-                  <Text style={styles.productQuantity}>
-                    {product.quantity} vendidos
+          </Card>
+
+          {/* ============ SECONDARY STATS ============ */}
+          <View style={styles.secondaryStats}>
+            <Card
+              variant="glass"
+              padding={s.md}
+              borderRadius={radius.xl}
+              style={styles.secondaryCard}
+            >
+              <View style={[styles.secondaryIcon, styles.iconSuccess]}>
+                <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+              </View>
+              <Text style={styles.secondaryValue}>{stats.completedOrders}</Text>
+              <Text style={styles.secondaryLabel}>COMPLETADOS</Text>
+            </Card>
+            <Card
+              variant="glass"
+              padding={s.md}
+              borderRadius={radius.xl}
+              style={styles.secondaryCard}
+            >
+              <View style={[styles.secondaryIcon, styles.iconDanger]}>
+                <Ionicons name="close-circle" size={14} color={colors.danger} />
+              </View>
+              <Text style={styles.secondaryValue}>{stats.cancelledOrders}</Text>
+              <Text style={styles.secondaryLabel}>CANCELADOS</Text>
+            </Card>
+            <Card
+              variant="glass"
+              padding={s.md}
+              borderRadius={radius.xl}
+              style={styles.secondaryCard}
+            >
+              <View style={[styles.secondaryIcon, styles.iconPrimary]}>
+                <Ionicons name="trending-up" size={14} color={colors.primary} />
+              </View>
+              <Text style={styles.secondaryValue}>
+                {stats.totalOrders > 0
+                  ? `${Math.round((stats.completedOrders / stats.totalOrders) * 100)}%`
+                  : '0%'}
+              </Text>
+              <Text style={styles.secondaryLabel}>ÉXITO</Text>
+            </Card>
+          </View>
+
+          {/* ============ REVENUE CHART ============ */}
+          <Section title="Ventas por día" eyebrow="TENDENCIA" spacing={s.xl}>
+            <Card variant="glass" padding={s.lg} borderRadius={radius.xl}>
+              {!stats.revenueByDay || stats.revenueByDay.length === 0 ? (
+                <View style={styles.emptyChart}>
+                  <Ionicons
+                    name="bar-chart-outline"
+                    size={32}
+                    color={colors.textFaint}
+                  />
+                  <Text style={styles.emptyChartText}>
+                    Sin datos disponibles
                   </Text>
                 </View>
-                <Text style={styles.productRevenue}>
-                  {formatCurrency(product.revenue)}
+              ) : (
+                <>
+                  <View style={styles.chartContainer}>
+                    {stats.revenueByDay.map((day, index) => {
+                      const heightPct = (day.revenue / getMaxRevenue()) * 100;
+                      const isPeak = day.revenue === getMaxRevenue() && day.revenue > 0;
+                      return (
+                        <View key={index} style={styles.chartBar}>
+                          <View style={styles.barContainer}>
+                            <View
+                              style={[
+                                styles.bar,
+                                {
+                                  height: `${heightPct}%`,
+                                  backgroundColor: isPeak
+                                    ? colors.primary
+                                    : 'rgba(255,194,14,0.35)',
+                                },
+                              ]}
+                            />
+                          </View>
+                          <Text style={styles.barLabel}>{day.day}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                  <View style={styles.chartLegend}>
+                    <Text style={styles.chartLegendText}>
+                      Pico:{' '}
+                      <Text style={styles.chartLegendValue}>
+                        {formatCurrency(getMaxRevenue())}
+                      </Text>
+                    </Text>
+                  </View>
+                </>
+              )}
+            </Card>
+          </Section>
+
+          {/* ============ TOP PRODUCTS ============ */}
+          <Section title="Productos top" eyebrow="MÁS VENDIDOS" spacing={s.xl}>
+            <Card variant="glass" padding={0} borderRadius={radius.xl}>
+              {!stats.topProducts || stats.topProducts.length === 0 ? (
+                <View style={styles.emptyProducts}>
+                  <Ionicons
+                    name="trophy-outline"
+                    size={28}
+                    color={colors.textFaint}
+                  />
+                  <Text style={styles.emptyChartText}>
+                    Sin datos disponibles
+                  </Text>
+                </View>
+              ) : (
+                stats.topProducts.map((product, index) => (
+                  <View key={index}>
+                    {index > 0 && <View style={styles.productDivider} />}
+                    <View style={styles.productRow}>
+                      <View
+                        style={[
+                          styles.productRank,
+                          index === 0 && styles.productRankFirst,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.rankText,
+                            index === 0 && styles.rankTextFirst,
+                          ]}
+                        >
+                          {index + 1}
+                        </Text>
+                      </View>
+                      <View style={styles.productInfo}>
+                        <Text style={styles.productName} numberOfLines={1}>
+                          {product.name}
+                        </Text>
+                        <Text style={styles.productQuantity}>
+                          {product.quantity} vendido{product.quantity === 1 ? '' : 's'}
+                        </Text>
+                      </View>
+                      <Text style={styles.productRevenue}>
+                        {formatCurrency(product.revenue)}
+                      </Text>
+                    </View>
+                  </View>
+                ))
+              )}
+            </Card>
+          </Section>
+
+          {/* ============ TIPS ============ */}
+          <Section title="Tips para crecer" eyebrow="INSIGHTS" spacing={s.lg}>
+            <Card
+              variant="glass"
+              padding={s.lg}
+              borderRadius={radius.xl}
+              style={styles.tipCard}
+            >
+              <View style={styles.tipHalo}>
+                <Ionicons name="bulb-outline" size={18} color={colors.primary} />
+              </View>
+              <View style={styles.tipContent}>
+                <Text style={styles.tipTitle}>Amplía tu catálogo</Text>
+                <Text style={styles.tipText}>
+                  Los restaurantes con más variedad reciben 30% más pedidos.
                 </Text>
               </View>
-            ))
-          )}
-        </View>
-
-        {/* Tips */}
-        <View style={styles.tipsSection}>
-          <Text style={styles.sectionTitle}>Consejos para Mejorar</Text>
-          <View style={styles.tipCard}>
-            <Ionicons name="bulb" size={24} color="#EAB308" />
-            <View style={styles.tipContent}>
-              <Text style={styles.tipTitle}>Agrega mas productos</Text>
-              <Text style={styles.tipText}>
-                Los restaurantes con mas variedad reciben 30% mas pedidos
-              </Text>
-            </View>
-          </View>
-          <View style={styles.tipCard}>
-            <Ionicons name="camera" size={24} color="#EC4899" />
-            <View style={styles.tipContent}>
-              <Text style={styles.tipTitle}>Mejora tus fotos</Text>
-              <Text style={styles.tipText}>
-                Productos con buenas fotos se venden 2x mas
-              </Text>
-            </View>
-          </View>
-          <View style={styles.tipCard}>
-            <Ionicons name="time" size={24} color="#22C55E" />
-            <View style={styles.tipContent}>
-              <Text style={styles.tipTitle}>Responde rapido</Text>
-              <Text style={styles.tipText}>
-                Acepta pedidos en menos de 2 minutos para mejor ranking
-              </Text>
-            </View>
-          </View>
+            </Card>
+            <Card
+              variant="glass"
+              padding={s.lg}
+              borderRadius={radius.xl}
+              style={styles.tipCard}
+            >
+              <View style={styles.tipHalo}>
+                <Ionicons name="camera-outline" size={18} color={colors.primary} />
+              </View>
+              <View style={styles.tipContent}>
+                <Text style={styles.tipTitle}>Mejora tus fotos</Text>
+                <Text style={styles.tipText}>
+                  Productos con buenas fotos se venden 2× más.
+                </Text>
+              </View>
+            </Card>
+            <Card
+              variant="glass"
+              padding={s.lg}
+              borderRadius={radius.xl}
+              style={styles.tipCard}
+            >
+              <View style={styles.tipHalo}>
+                <Ionicons name="flash-outline" size={18} color={colors.primary} />
+              </View>
+              <View style={styles.tipContent}>
+                <Text style={styles.tipTitle}>Responde rápido</Text>
+                <Text style={styles.tipText}>
+                  Acepta pedidos en menos de 2 minutos para subir en ranking.
+                </Text>
+              </View>
+            </Card>
+          </Section>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -196,101 +344,137 @@ export default function RestaurantStatsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
+  container: { flex: 1, backgroundColor: colors.bg },
+
+  // ============ HEADER ============
   header: {
-    padding: 20,
-    backgroundColor: '#fff',
+    paddingHorizontal: s.xl,
+    paddingTop: s.sm,
+    paddingBottom: s.md,
+  },
+  eyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0F172A',
+    color: colors.text,
+    fontSize: fontSize['3xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.6,
+    marginTop: 2,
   },
+
+  // ============ PERIOD SELECTOR ============
   periodSelector: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    gap: 8,
+    paddingHorizontal: s.xl,
+    paddingBottom: s.md,
+    gap: s.xs,
   },
   periodBtn: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#F5F5F5',
+    paddingVertical: s.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
   },
   periodBtnActive: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    borderColor: colors.primary,
   },
   periodText: {
-    fontSize: 14,
-    color: '#666',
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.3,
   },
   periodTextActive: {
-    color: '#fff',
-    fontWeight: '600',
+    color: colors.primary,
   },
-  mainStats: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 12,
+
+  // ============ BODY ============
+  body: {
+    paddingHorizontal: s.xl,
   },
-  mainStatCard: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
+
+  // ============ HERO CARD ============
+  heroCard: {
+    marginBottom: s.md,
+    ...shadows.sm,
   },
-  mainStatValue: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#0F172A',
-    marginTop: 12,
+  heroEyebrow: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
   },
-  mainStatLabel: {
-    fontSize: 14,
-    color: '#666',
+  heroValue: {
+    color: colors.primary,
+    fontSize: fontSize['4xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -1,
     marginTop: 4,
   },
+  heroMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: s.sm,
+  },
+  heroMetaText: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    flex: 1,
+  },
+
+  // ============ SECONDARY STATS ============
   secondaryStats: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 8,
+    gap: s.xs,
+    marginBottom: s.xl,
   },
-  secondaryStatCard: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
+  secondaryCard: { flex: 1 },
+  secondaryIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.md,
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
   },
-  secondaryStatLabel: {
-    fontSize: 12,
-    color: '#666',
+  iconSuccess: {
+    backgroundColor: 'rgba(31,174,111,0.12)',
+    borderColor: 'rgba(31,174,111,0.32)',
   },
-  secondaryStatValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#0F172A',
-    marginTop: 4,
+  iconDanger: {
+    backgroundColor: 'rgba(229,72,77,0.12)',
+    borderColor: 'rgba(229,72,77,0.32)',
   },
-  section: {
-    backgroundColor: '#fff',
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
+  iconPrimary: {
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    borderColor: 'rgba(255,194,14,0.25)',
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#0F172A',
-    marginBottom: 16,
+  secondaryValue: {
+    color: colors.text,
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.3,
+    marginTop: s.xs,
   },
+  secondaryLabel: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
+    marginTop: 2,
+  },
+
+  // ============ CHART ============
   chartContainer: {
     flexDirection: 'row',
     height: 150,
@@ -300,7 +484,7 @@ const styles = StyleSheet.create({
   chartBar: {
     flex: 1,
     alignItems: 'center',
-    marginHorizontal: 4,
+    marginHorizontal: 3,
   },
   barContainer: {
     flex: 1,
@@ -309,84 +493,134 @@ const styles = StyleSheet.create({
   },
   bar: {
     width: '100%',
-    backgroundColor: '#FF6B35',
-    borderRadius: 4,
+    borderRadius: radius.sm,
     minHeight: 4,
   },
   barLabel: {
-    fontSize: 10,
-    color: '#666',
-    marginTop: 8,
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.3,
+    marginTop: s.xs,
+    textTransform: 'uppercase',
   },
-  emptyProducts: {
-    padding: 32,
+  chartLegend: {
+    marginTop: s.md,
+    paddingTop: s.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  chartLegendText: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+  },
+  chartLegendValue: {
+    color: colors.primary,
+    fontWeight: fontWeight.black,
+  },
+  emptyChart: {
+    paddingVertical: s.xl,
     alignItems: 'center',
+    gap: s.sm,
   },
-  emptyText: {
-    color: '#666',
+  emptyChartText: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+  },
+
+  // ============ TOP PRODUCTS ============
+  emptyProducts: {
+    paddingVertical: s.xl,
+    alignItems: 'center',
+    gap: s.sm,
   },
   productRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
+    paddingVertical: s.md,
+    paddingHorizontal: s.lg,
+    gap: s.sm,
+  },
+  productDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginHorizontal: s.lg,
   },
   productRank: {
     width: 28,
     height: 28,
-    borderRadius: 14,
-    backgroundColor: '#FF6B35',
+    borderRadius: radius.pill,
+    backgroundColor: colors.bgRaised,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  productRankFirst: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
   rankText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 12,
+    color: colors.textMuted,
+    fontWeight: fontWeight.black,
+    fontSize: fontSize.xs,
+  },
+  rankTextFirst: {
+    color: colors.onPrimary,
   },
   productInfo: {
     flex: 1,
-    marginLeft: 12,
   },
   productName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#0F172A',
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
   },
   productQuantity: {
-    fontSize: 12,
-    color: '#666',
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
     marginTop: 2,
   },
   productRevenue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#22C55E',
+    color: colors.primary,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.black,
+    letterSpacing: 0.2,
   },
-  tipsSection: {
-    padding: 16,
-  },
+
+  // ============ TIPS ============
   tipCard: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
     alignItems: 'center',
+    gap: s.sm,
+    marginBottom: s.sm,
   },
-  tipContent: {
-    flex: 1,
-    marginLeft: 12,
+  tipHalo: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,194,14,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  tipContent: { flex: 1 },
   tipTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#0F172A',
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
   },
   tipText: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
+    marginTop: 2,
+    lineHeight: 16,
   },
 });

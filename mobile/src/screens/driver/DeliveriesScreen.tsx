@@ -1,5 +1,9 @@
 // ==========================================
-// HISTORIAL DE ENTREGAS DEL REPARTIDOR
+// DEVOLÓN — Historial de entregas
+//
+// Header con eyebrow + stats grid (entregas, rating, tiempo, km).
+// Lista de cards glass con ruta restaurante→cliente, ganancia hero
+// y meta (distancia, duración, propina).
 // ==========================================
 
 import React, { useState, useEffect } from 'react';
@@ -8,12 +12,20 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  TouchableOpacity,
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { driverApi } from '../../services/api';
+import { Card, EmptyState } from '../../components/ui';
+import {
+  colors,
+  s,
+  radius,
+  fontSize,
+  fontWeight,
+  tracking,
+} from '../../theme';
 
 interface Delivery {
   id: string;
@@ -24,7 +36,7 @@ interface Delivery {
   earnings: number;
   tip: number;
   distance: number;
-  duration: number; // minutos
+  duration: number;
   completedAt: Date;
   rating?: number;
 }
@@ -51,7 +63,7 @@ export default function DriverDeliveriesScreen() {
       if (pageNum === 1) {
         setDeliveries(data);
       } else {
-        setDeliveries([...deliveries, ...data]);
+        setDeliveries((prev) => [...prev, ...data]);
       }
     } catch (error) {
       console.error('Error loading deliveries:', error);
@@ -61,7 +73,13 @@ export default function DriverDeliveriesScreen() {
   const loadStats = async () => {
     try {
       const data = await driverApi.getStats();
-      setStats(data);
+      // Guardamos contra null/undefined del backend.
+      setStats({
+        totalDeliveries: data?.totalDeliveries ?? 0,
+        avgRating: data?.avgRating ?? 0,
+        avgTime: data?.avgTime ?? 0,
+        totalDistance: data?.totalDistance ?? 0,
+      });
     } catch (error) {
       console.error('Error loading stats:', error);
     }
@@ -81,7 +99,11 @@ export default function DriverDeliveriesScreen() {
     loadDeliveries(nextPage);
   };
 
-  const formatCurrency = (amount: number) => `$${amount.toFixed(2)}`;
+  // Bulletproof: maneja todo (string/number/undefined/null/NaN/objetos).
+  const formatCurrency = (amount: any) => {
+    const n = Number(amount);
+    return `$${(isFinite(n) ? n : 0).toFixed(2)}`;
+  };
 
   const formatDate = (date: Date) => {
     const d = new Date(date);
@@ -90,9 +112,15 @@ export default function DriverDeliveriesScreen() {
     yesterday.setDate(yesterday.getDate() - 1);
 
     if (d.toDateString() === today.toDateString()) {
-      return 'Hoy ' + d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+      return (
+        'Hoy ' +
+        d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+      );
     } else if (d.toDateString() === yesterday.toDateString()) {
-      return 'Ayer ' + d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+      return (
+        'Ayer ' +
+        d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+      );
     }
     return d.toLocaleDateString('es-MX', {
       day: 'numeric',
@@ -102,112 +130,144 @@ export default function DriverDeliveriesScreen() {
     });
   };
 
-  const renderDelivery = ({ item }: { item: Delivery }) => (
-    <View style={styles.deliveryCard}>
-      <View style={styles.deliveryHeader}>
-        <View style={styles.orderInfo}>
-          <Text style={styles.orderNumber}>#{item.orderNumber}</Text>
-          <Text style={styles.deliveryDate}>{formatDate(item.completedAt)}</Text>
+  // Helper bulletproof — convierte cualquier basura a número finito o 0.
+  const num = (v: any) => {
+    const n = Number(v);
+    return isFinite(n) ? n : 0;
+  };
+
+  const renderDelivery = ({ item }: { item: any }) => {
+    const safe = item || {};
+    const earnings = num(safe.earnings);
+    const tip = num(safe.tip);
+    const distance = num(safe.distance);
+    const duration = safe.duration ?? '—';
+    const rating = safe.rating;
+    return (
+      <Card variant="glass" padding={s.lg} borderRadius={radius.xl} style={styles.deliveryCard}>
+        <View style={styles.cardHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.orderEyebrow}>DVL-{String(safe.orderNumber ?? '—')}</Text>
+            <Text style={styles.orderDate}>
+              {safe.completedAt ? formatDate(safe.completedAt) : ''}
+            </Text>
+          </View>
+          <View style={styles.earnBlock}>
+            <Text style={styles.earnValue}>{formatCurrency(earnings + tip)}</Text>
+            {rating != null && typeof rating !== 'object' && (
+              <View style={styles.ratingBadge}>
+                <Ionicons name="star" size={11} color={colors.primary} />
+                <Text style={styles.ratingText}>{String(rating)}</Text>
+              </View>
+            )}
+          </View>
         </View>
-        <View style={styles.earningsContainer}>
-          <Text style={styles.earnings}>{formatCurrency(item.earnings + item.tip)}</Text>
-          {item.rating && (
-            <View style={styles.ratingBadge}>
-              <Ionicons name="star" size={12} color="#EAB308" />
-              <Text style={styles.ratingText}>{item.rating}</Text>
+
+        <View style={styles.route}>
+          <View style={styles.routeRow}>
+            <View style={[styles.routeDot, styles.routeDotPickup]} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.routeLabel}>RECOGER</Text>
+              <Text style={styles.routeName} numberOfLines={1}>
+                {String(safe.restaurantName ?? safe.restaurant?.name ?? 'Restaurante')}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.routeLine} />
+          <View style={styles.routeRow}>
+            <View style={[styles.routeDot, styles.routeDotDrop]} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.routeLabel}>ENTREGAR</Text>
+              <Text style={styles.routeName} numberOfLines={1}>
+                {String(safe.customerName ?? safe.customer?.name ?? 'Cliente')}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.statsRow}>
+          <View style={styles.statPill}>
+            <Ionicons name="navigate-outline" size={12} color={colors.textMuted} />
+            <Text style={styles.statPillText}>{distance.toFixed(1)} km</Text>
+          </View>
+          <View style={styles.statPill}>
+            <Ionicons name="time-outline" size={12} color={colors.textMuted} />
+            <Text style={styles.statPillText}>{String(duration)} min</Text>
+          </View>
+          {tip > 0 && (
+            <View style={[styles.statPill, styles.statPillTip]}>
+              <Ionicons name="heart" size={12} color={colors.success} />
+              <Text style={[styles.statPillText, styles.statPillTextTip]}>
+                +{formatCurrency(tip)} propina
+              </Text>
             </View>
           )}
         </View>
-      </View>
-
-      <View style={styles.routeContainer}>
-        <View style={styles.routePoint}>
-          <View style={[styles.routeDot, { backgroundColor: '#FF6B35' }]} />
-          <View style={styles.routeInfo}>
-            <Text style={styles.routeLabel}>Recoger</Text>
-            <Text style={styles.routeName}>{item.restaurantName}</Text>
-          </View>
-        </View>
-        <View style={styles.routeLine} />
-        <View style={styles.routePoint}>
-          <View style={[styles.routeDot, { backgroundColor: '#22C55E' }]} />
-          <View style={styles.routeInfo}>
-            <Text style={styles.routeLabel}>Entregar</Text>
-            <Text style={styles.routeName}>{item.customerName}</Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.deliveryStats}>
-        <View style={styles.deliveryStat}>
-          <Ionicons name="navigate" size={16} color="#666" />
-          <Text style={styles.deliveryStatText}>{item.distance.toFixed(1)} km</Text>
-        </View>
-        <View style={styles.deliveryStat}>
-          <Ionicons name="time" size={16} color="#666" />
-          <Text style={styles.deliveryStatText}>{item.duration} min</Text>
-        </View>
-        {item.tip > 0 && (
-          <View style={styles.deliveryStat}>
-            <Ionicons name="heart" size={16} color="#22C55E" />
-            <Text style={[styles.deliveryStatText, { color: '#22C55E' }]}>
-              +{formatCurrency(item.tip)} propina
-            </Text>
-          </View>
-        )}
-      </View>
-    </View>
-  );
+      </Card>
+    );
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Mis Entregas</Text>
+        <Text style={styles.eyebrow}>HISTORIAL</Text>
+        <Text style={styles.headerTitle}>Mis entregas</Text>
       </View>
 
-      {/* Stats */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{stats.totalDeliveries}</Text>
-          <Text style={styles.statLabel}>Entregas</Text>
-        </View>
-        <View style={styles.statCard}>
-          <View style={styles.statWithIcon}>
-            <Ionicons name="star" size={16} color="#EAB308" />
-            <Text style={styles.statValue}>{stats.avgRating.toFixed(1)}</Text>
-          </View>
-          <Text style={styles.statLabel}>Calificacion</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{stats.avgTime}</Text>
-          <Text style={styles.statLabel}>Min prom.</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{stats.totalDistance.toFixed(0)}</Text>
-          <Text style={styles.statLabel}>Km totales</Text>
-        </View>
+      {/* STATS GRID — todo guardado contra null/undefined/strings */}
+      <View style={styles.statsGrid}>
+        <Card variant="raised" padding={s.md} borderRadius={radius.xl} style={styles.statCard}>
+          <Ionicons name="bicycle" size={16} color={colors.primary} />
+          <Text style={styles.statValue}>{num(stats?.totalDeliveries)}</Text>
+          <Text style={styles.statLabel}>ENTREGAS</Text>
+        </Card>
+        <Card variant="glass" padding={s.md} borderRadius={radius.xl} style={styles.statCard}>
+          <Ionicons name="star" size={16} color={colors.primary} />
+          <Text style={styles.statValue}>{num(stats?.avgRating).toFixed(1)}</Text>
+          <Text style={styles.statLabel}>RATING</Text>
+        </Card>
+        <Card variant="glass" padding={s.md} borderRadius={radius.xl} style={styles.statCard}>
+          <Ionicons name="time-outline" size={16} color={colors.primary} />
+          <Text style={styles.statValue}>{num(stats?.avgTime)}</Text>
+          <Text style={styles.statLabel}>MIN PROM</Text>
+        </Card>
+        <Card variant="glass" padding={s.md} borderRadius={radius.xl} style={styles.statCard}>
+          <Ionicons name="map-outline" size={16} color={colors.primary} />
+          <Text style={styles.statValue}>{num(stats?.totalDistance).toFixed(0)}</Text>
+          <Text style={styles.statLabel}>KM TOTAL</Text>
+        </Card>
       </View>
 
-      {/* Deliveries List */}
+      {/* LIST */}
       <FlatList
         data={deliveries}
         renderItem={renderDelivery}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
         }
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
+        ListHeaderComponent={
+          deliveries.length > 0 ? (
+            <View style={styles.listHeader}>
+              <Text style={styles.listEyebrow}>RECIENTES</Text>
+              <Text style={styles.listTitle}>Últimas entregas</Text>
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="bicycle-outline" size={64} color="#E5E5E5" />
-            <Text style={styles.emptyText}>No hay entregas todavia</Text>
-            <Text style={styles.emptySubtext}>
-              Tus entregas completadas apareceran aqui
-            </Text>
-          </View>
+          <EmptyState
+            icon="bicycle-outline"
+            title="Aún no hay entregas"
+            subtitle="Cuando completes una entrega aparecerá aquí."
+          />
         }
       />
     </SafeAreaView>
@@ -215,155 +275,189 @@ export default function DriverDeliveriesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
+  container: { flex: 1, backgroundColor: colors.bg },
+
+  // ============ HEADER ============
   header: {
-    padding: 20,
-    backgroundColor: '#fff',
+    paddingHorizontal: s.xl,
+    paddingTop: s.sm,
+    paddingBottom: s.md,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0F172A',
+  eyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
   },
-  statsContainer: {
+  headerTitle: {
+    color: colors.text,
+    fontSize: fontSize['3xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.6,
+    marginTop: 2,
+  },
+
+  // ============ STATS GRID ============
+  statsGrid: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingHorizontal: 8,
-    paddingBottom: 16,
-    gap: 8,
+    gap: s.xs,
+    paddingHorizontal: s.xl,
+    marginBottom: s.lg,
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
-    padding: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#0F172A',
-  },
-  statWithIcon: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 4,
   },
-  statLabel: {
-    fontSize: 10,
-    color: '#666',
-    marginTop: 4,
-  },
-  list: {
-    padding: 16,
-  },
-  deliveryCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  deliveryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  orderInfo: {},
-  orderNumber: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#0F172A',
-  },
-  deliveryDate: {
-    fontSize: 12,
-    color: '#666',
+  statValue: {
+    color: colors.text,
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.4,
     marginTop: 2,
   },
-  earningsContainer: {
+  statLabel: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
+  },
+
+  // ============ LIST ============
+  list: {
+    paddingHorizontal: s.xl,
+    paddingBottom: s['4xl'],
+    flexGrow: 1,
+  },
+  listHeader: {
+    marginBottom: s.md,
+  },
+  listEyebrow: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+  },
+  listTitle: {
+    color: colors.text,
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.3,
+    marginTop: 2,
+  },
+
+  // ============ DELIVERY CARD ============
+  deliveryCard: {
+    marginBottom: s.sm,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  orderEyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
+  },
+  orderDate: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    marginTop: 2,
+  },
+  earnBlock: {
     alignItems: 'flex-end',
   },
-  earnings: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#22C55E',
+  earnValue: {
+    color: colors.primary,
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.4,
   },
   ratingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEFCE8',
-    paddingHorizontal: 8,
+    gap: 3,
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 10,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,194,14,0.12)',
     marginTop: 4,
   },
   ratingText: {
-    fontSize: 12,
-    color: '#92400E',
-    fontWeight: '600',
-    marginLeft: 4,
+    color: colors.primary,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.heavy,
   },
-  routeContainer: {
-    marginTop: 16,
+
+  // ============ ROUTE ============
+  route: {
+    marginTop: s.md,
+    paddingVertical: s.sm,
+    paddingHorizontal: s.sm,
+    backgroundColor: colors.bgRaised,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
   },
-  routePoint: {
+  routeRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: s.xs,
   },
   routeDot: {
     width: 10,
     height: 10,
-    borderRadius: 5,
+    borderRadius: radius.pill,
   },
-  routeInfo: {
-    marginLeft: 12,
-  },
+  routeDotPickup: { backgroundColor: colors.primary },
+  routeDotDrop: { backgroundColor: colors.success },
   routeLabel: {
-    fontSize: 10,
-    color: '#666',
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
   },
   routeName: {
-    fontSize: 14,
-    color: '#0F172A',
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    marginTop: 1,
   },
   routeLine: {
-    width: 2,
-    height: 16,
-    backgroundColor: '#E5E5E5',
-    marginLeft: 4,
-    marginVertical: 4,
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 6,
+    marginLeft: 18,
   },
-  deliveryStats: {
+
+  // ============ STATS PILLS ============
+  statsRow: {
     flexDirection: 'row',
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#F5F5F5',
-    gap: 16,
+    flexWrap: 'wrap',
+    gap: s.xs,
+    marginTop: s.sm,
   },
-  deliveryStat: {
+  statPill: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bgRaised,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  deliveryStatText: {
-    fontSize: 12,
-    color: '#666',
-    marginLeft: 4,
+  statPillTip: {
+    backgroundColor: 'rgba(31,174,111,0.1)',
+    borderColor: 'rgba(31,174,111,0.32)',
   },
-  empty: {
-    alignItems: 'center',
-    paddingVertical: 64,
+  statPillText: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
   },
-  emptyText: {
-    fontSize: 16,
-    color: '#666',
-    marginTop: 12,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#999',
-    marginTop: 4,
-  },
+  statPillTextTip: { color: colors.success },
 });

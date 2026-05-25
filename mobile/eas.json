@@ -1,0 +1,66 @@
+{
+  "cli": {
+    "version": ">= 5.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "//": "============================================",
+    "//1": "PERFILES DE BUILD",
+    "//2": "",
+    "//3": "development → APK con dev client para probar local conectado a Metro",
+    "//4": "preview     → APK firmado para repartir a beta testers por link",
+    "//5": "production  → AAB (Google) + IPA (Apple) listos para subir a stores",
+    "//6": "",
+    "//7": "EXPO_PUBLIC_API_URL apunta al backend deployado en Railway.",
+    "//8": "Cambia a tu dominio una vez que esté listo el deploy.",
+    "//9": "============================================",
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://10.0.2.2:4000/api"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.devolon.mx/api"
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": false
+      }
+    },
+    "production": {
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.devolon.mx/api"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "//": "Path al service account JSON descargado de Google Play Console.",
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "internal"
+      },
+      "ios": {
+        "//": "Apple ID y app-specific password — se piden la primera vez.",
+        "appleId": "PENDIENTE_APPLE_ID",
+        "ascAppId": "PENDIENTE_APP_STORE_CONNECT_APP_ID",
+        "appleTeamId": "PENDIENTE_APPLE_TEAM_ID"
+      }
+    }
+  }
+}

@@ -1,5 +1,10 @@
 // ==========================================
-// HOME SCREEN - CLIENTE
+// DEVOLÓN — Customer Home
+//
+// Hero feed editorial: header dark con saludo + dirección + acceso a
+// chatbot y carrito, search bar glass, banner "Pregúntale a Devo",
+// categorías horizontales pill-style, destacados cinematográficos y
+// listado vertical de restaurantes en cards glass.
 // ==========================================
 
 import React, { useState, useEffect } from 'react';
@@ -8,7 +13,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TextInput,
   TouchableOpacity,
   Image,
   FlatList,
@@ -17,35 +21,33 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
 import { useCartStore } from '../../store/cartStore';
 import { Restaurant } from '../../types';
-import { restaurantsApi } from '../../services/api';
+import { Input, Card, Section } from '../../components/ui';
+import {
+  colors,
+  s,
+  radius,
+  shadows,
+  fontSize,
+  fontWeight,
+  tracking,
+} from '../../theme';
 
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = width * 0.75;
+const FEATURED_CARD_W = width * 0.78;
 
-// Colores de la marca
-const COLORS = {
-  primary: '#FF6B35',
-  secondary: '#2E4057',
-  background: '#F8F9FA',
-  white: '#FFFFFF',
-  gray: '#6C757D',
-  lightGray: '#E9ECEF',
-  text: '#212529',
-  textLight: '#6C757D',
-  success: '#4CAF50',
-  star: '#FFD700',
-};
+type Category = { id: string; name: string; icon: string };
 
-// Categorias de restaurantes
-const CATEGORIES = [
+const CATEGORIES: Category[] = [
   { id: '1', name: 'Tacos', icon: '🌮' },
   { id: '2', name: 'Pizza', icon: '🍕' },
-  { id: '3', name: 'Hamburguesas', icon: '🍔' },
+  { id: '3', name: 'Burgers', icon: '🍔' },
   { id: '4', name: 'Sushi', icon: '🍣' },
   { id: '5', name: 'Pollos', icon: '🍗' },
   { id: '6', name: 'Mariscos', icon: '🦐' },
@@ -55,16 +57,15 @@ const CATEGORIES = [
   { id: '10', name: 'Desayunos', icon: '🍳' },
 ];
 
-// Datos mock de restaurantes (se reemplazara con API)
 const MOCK_RESTAURANTS: Restaurant[] = [
   {
     id: '1',
     ownerId: '1',
-    name: 'Tacos El Patron',
-    description: 'Los mejores tacos de la ciudad con recetas tradicionales',
+    name: 'Tacos El Patrón',
+    description: 'Los mejores tacos de la ciudad con recetas tradicionales.',
     logo: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=200',
     coverImage: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=800',
-    address: { id: '1', label: 'Local', street: 'Av. Revolucion', number: '123', neighborhood: 'Centro', city: 'CDMX', state: 'CDMX', zipCode: '06000', location: { latitude: 19.4326, longitude: -99.1332 }, isDefault: true },
+    address: { id: '1', label: 'Local', street: 'Av. Revolución', number: '123', neighborhood: 'Centro', city: 'CDMX', state: 'CDMX', zipCode: '06000', location: { latitude: 19.4326, longitude: -99.1332 }, isDefault: true },
     phone: '555-123-4567',
     email: 'tacos@patron.com',
     category: 'Tacos',
@@ -82,10 +83,10 @@ const MOCK_RESTAURANTS: Restaurant[] = [
     id: '2',
     ownerId: '2',
     name: 'Pizza Napoli',
-    description: 'Autentica pizza italiana con ingredientes importados',
+    description: 'Auténtica pizza italiana con ingredientes importados.',
     logo: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=200',
     coverImage: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800',
-    address: { id: '2', label: 'Local', street: 'Calle Roma', number: '456', neighborhood: 'Roma Norte', city: 'CDMX', state: 'CDMX', zipCode: '06700', location: { latitude: 19.4200, longitude: -99.1600 }, isDefault: true },
+    address: { id: '2', label: 'Local', street: 'Calle Roma', number: '456', neighborhood: 'Roma Norte', city: 'CDMX', state: 'CDMX', zipCode: '06700', location: { latitude: 19.42, longitude: -99.16 }, isDefault: true },
     phone: '555-987-6543',
     email: 'pizza@napoli.com',
     category: 'Pizza',
@@ -103,10 +104,10 @@ const MOCK_RESTAURANTS: Restaurant[] = [
     id: '3',
     ownerId: '3',
     name: 'Burger Master',
-    description: 'Hamburguesas artesanales con carne Angus',
+    description: 'Hamburguesas artesanales con carne Angus.',
     logo: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=200',
     coverImage: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800',
-    address: { id: '3', label: 'Local', street: 'Av. Insurgentes', number: '789', neighborhood: 'Del Valle', city: 'CDMX', state: 'CDMX', zipCode: '03100', location: { latitude: 19.3800, longitude: -99.1700 }, isDefault: true },
+    address: { id: '3', label: 'Local', street: 'Av. Insurgentes', number: '789', neighborhood: 'Del Valle', city: 'CDMX', state: 'CDMX', zipCode: '03100', location: { latitude: 19.38, longitude: -99.17 }, isDefault: true },
     phone: '555-456-7890',
     email: 'info@burgermaster.com',
     category: 'Hamburguesas',
@@ -124,10 +125,10 @@ const MOCK_RESTAURANTS: Restaurant[] = [
     id: '4',
     ownerId: '4',
     name: 'Sushi Sakura',
-    description: 'El mejor sushi japones con pescado fresco diario',
+    description: 'El mejor sushi japonés con pescado fresco diario.',
     logo: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=200',
     coverImage: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=800',
-    address: { id: '4', label: 'Local', street: 'Calle Polanco', number: '321', neighborhood: 'Polanco', city: 'CDMX', state: 'CDMX', zipCode: '11550', location: { latitude: 19.4350, longitude: -99.1900 }, isDefault: true },
+    address: { id: '4', label: 'Local', street: 'Calle Polanco', number: '321', neighborhood: 'Polanco', city: 'CDMX', state: 'CDMX', zipCode: '11550', location: { latitude: 19.435, longitude: -99.19 }, isDefault: true },
     phone: '555-321-0987',
     email: 'sushi@sakura.com',
     category: 'Sushi',
@@ -143,71 +144,65 @@ const MOCK_RESTAURANTS: Restaurant[] = [
   },
 ];
 
-// Componente de categoria
-const CategoryItem = ({ category, onPress }: { category: typeof CATEGORIES[0]; onPress: () => void }) => (
-  <TouchableOpacity style={styles.categoryItem} onPress={onPress}>
-    <View style={styles.categoryIcon}>
-      <Text style={styles.categoryEmoji}>{category.icon}</Text>
-    </View>
-    <Text style={styles.categoryName}>{category.name}</Text>
+const CategoryPill = ({ category, active, onPress }: { category: Category; active: boolean; onPress: () => void }) => (
+  <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={[styles.categoryPill, active && styles.categoryPillActive]}>
+    <Text style={styles.categoryEmoji}>{category.icon}</Text>
+    <Text style={[styles.categoryName, active && styles.categoryNameActive]}>{category.name}</Text>
   </TouchableOpacity>
 );
 
-// Componente de restaurante destacado (horizontal)
-const FeaturedRestaurantCard = ({ restaurant, onPress }: { restaurant: Restaurant; onPress: () => void }) => (
-  <TouchableOpacity style={styles.featuredCard} onPress={onPress}>
+const FeaturedCard = ({ restaurant, onPress }: { restaurant: Restaurant; onPress: () => void }) => (
+  <TouchableOpacity activeOpacity={0.88} onPress={onPress} style={styles.featuredCard}>
     <Image source={{ uri: restaurant.coverImage }} style={styles.featuredImage} />
-    <View style={styles.featuredOverlay}>
-      <View style={styles.featuredBadge}>
-        <Ionicons name="star" size={12} color={COLORS.star} />
-        <Text style={styles.featuredRating}>{restaurant.rating}</Text>
-      </View>
+    <LinearGradient
+      colors={['transparent', 'rgba(0,0,0,0.85)']}
+      style={styles.featuredGradient}
+    />
+    <View style={styles.featuredBadge}>
+      <Ionicons name="star" size={12} color={colors.primary} />
+      <Text style={styles.featuredBadgeText}>{restaurant.rating}</Text>
     </View>
     <View style={styles.featuredInfo}>
       <Text style={styles.featuredName} numberOfLines={1}>{restaurant.name}</Text>
-      <Text style={styles.featuredCategory}>{restaurant.category}</Text>
       <View style={styles.featuredMeta}>
-        <Ionicons name="time-outline" size={12} color={COLORS.gray} />
+        <Text style={styles.featuredCategory}>{restaurant.category}</Text>
+        <View style={styles.dot} />
+        <Ionicons name="time-outline" size={11} color={colors.textMuted} />
         <Text style={styles.featuredMetaText}>{restaurant.deliveryTime}</Text>
-        <Text style={styles.featuredDot}>•</Text>
-        <Text style={styles.featuredMetaText}>Envio ${restaurant.deliveryFee}</Text>
       </View>
     </View>
   </TouchableOpacity>
 );
 
-// Componente de restaurante (lista vertical)
-const RestaurantCard = ({ restaurant, onPress }: { restaurant: Restaurant; onPress: () => void }) => (
-  <TouchableOpacity style={styles.restaurantCard} onPress={onPress}>
-    <Image source={{ uri: restaurant.logo }} style={styles.restaurantImage} />
-    <View style={styles.restaurantInfo}>
-      <View style={styles.restaurantHeader}>
-        <Text style={styles.restaurantName} numberOfLines={1}>{restaurant.name}</Text>
-        <View style={styles.ratingBadge}>
-          <Ionicons name="star" size={12} color={COLORS.star} />
-          <Text style={styles.ratingText}>{restaurant.rating}</Text>
+const RestaurantRow = ({ restaurant, onPress }: { restaurant: Restaurant; onPress: () => void }) => (
+  <Card variant="glass" onPress={onPress} padding={s.md} borderRadius={radius.xl} style={styles.row}>
+    <Image source={{ uri: restaurant.logo }} style={styles.rowImage} />
+    <View style={styles.rowBody}>
+      <View style={styles.rowHeader}>
+        <Text style={styles.rowName} numberOfLines={1}>{restaurant.name}</Text>
+        <View style={styles.rowRating}>
+          <Ionicons name="star" size={11} color={colors.primary} />
+          <Text style={styles.rowRatingText}>{restaurant.rating}</Text>
         </View>
       </View>
-      <Text style={styles.restaurantCategory}>{restaurant.category}</Text>
-      <Text style={styles.restaurantDescription} numberOfLines={2}>
-        {restaurant.description}
-      </Text>
-      <View style={styles.restaurantMeta}>
-        <View style={styles.metaItem}>
-          <Ionicons name="time-outline" size={14} color={COLORS.gray} />
+      <Text style={styles.rowCategory}>{restaurant.category}</Text>
+      <Text style={styles.rowDescription} numberOfLines={2}>{restaurant.description}</Text>
+      <View style={styles.rowMeta}>
+        <View style={styles.metaPill}>
+          <Ionicons name="time-outline" size={11} color={colors.textMuted} />
           <Text style={styles.metaText}>{restaurant.deliveryTime}</Text>
         </View>
-        <View style={styles.metaItem}>
-          <Ionicons name="bicycle-outline" size={14} color={COLORS.gray} />
+        <View style={styles.metaPill}>
+          <Ionicons name="bicycle-outline" size={11} color={colors.textMuted} />
           <Text style={styles.metaText}>${restaurant.deliveryFee}</Text>
         </View>
-        <View style={styles.metaItem}>
-          <Ionicons name="cart-outline" size={14} color={COLORS.gray} />
-          <Text style={styles.metaText}>Min ${restaurant.minimumOrder}</Text>
+        <View style={styles.metaPill}>
+          <Ionicons name="cart-outline" size={11} color={colors.textMuted} />
+          <Text style={styles.metaText}>Mín ${restaurant.minimumOrder}</Text>
         </View>
       </View>
     </View>
-  </TouchableOpacity>
+  </Card>
 );
 
 export default function HomeScreen() {
@@ -218,26 +213,108 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [restaurants, setRestaurants] = useState<Restaurant[]>(MOCK_RESTAURANTS);
-  const [featuredRestaurants, setFeaturedRestaurants] = useState<Restaurant[]>([]);
+  const [featured, setFeatured] = useState<Restaurant[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Dirección actual del cliente — primero intenta reverse-geocode desde
+  // el GPS del teléfono, fallback a "Selecciona tu dirección" si el
+  // usuario negó permisos o no se pudo resolver. El tap permite cambiarla
+  // manualmente (a futuro: abrir picker de direcciones guardadas).
+  const [currentAddress, setCurrentAddress] = useState<string | null>(null);
+  const [currentCoords, setCurrentCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [locating, setLocating] = useState(true);
+
+  const detectLocation = async () => {
+    setLocating(true);
+    try {
+      const { status } =
+        await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setCurrentAddress(null);
+        setCurrentCoords(null);
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      setCurrentCoords({
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+      });
+      const results = await Location.reverseGeocodeAsync({
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+      });
+      const place = results?.[0];
+      if (place) {
+        const street =
+          [place.street, place.streetNumber].filter(Boolean).join(' ') ||
+          place.name ||
+          '';
+        const area = place.district || place.subregion || place.city || '';
+        const label = [street, area].filter(Boolean).join(', ');
+        setCurrentAddress(label || 'Cerca de ti');
+      } else {
+        setCurrentAddress('Cerca de ti');
+      }
+    } catch {
+      setCurrentAddress(null);
+      setCurrentCoords(null);
+    } finally {
+      setLocating(false);
+    }
+  };
+
+  useEffect(() => {
+    detectLocation();
+  }, []);
+
+  // Recarga el feed cuando cambien las coords (GPS resuelto) o la zona
+  // registrada del usuario. Estrategia híbrida: si tenemos GPS, el
+  // backend filtra por radio de entrega de cada restaurante. Si no, usa
+  // la zona del usuario como fallback de marketing.
   useEffect(() => {
     loadRestaurants();
-  }, []);
+  }, [currentCoords?.lat, currentCoords?.lng, (user as any)?.zone]);
 
   const loadRestaurants = async () => {
     setIsLoading(true);
     try {
-      // TODO: Reemplazar con llamada a API real
-      // const response = await restaurantsApi.getAll();
-      // setRestaurants(response.data);
-
-      // Por ahora usar datos mock
-      setRestaurants(MOCK_RESTAURANTS);
-      setFeaturedRestaurants(MOCK_RESTAURANTS.filter(r => r.rating >= 4.7));
+      const { restaurantsApi } = await import('../../services/api');
+      const params: any = {};
+      if (currentCoords) {
+        params.lat = currentCoords.lat;
+        params.lng = currentCoords.lng;
+      }
+      if ((user as any)?.zone) {
+        params.zone = (user as any).zone;
+      }
+      const data = await restaurantsApi.getAll(params);
+      const list = Array.isArray(data) ? data : [];
+      if (list.length === 0) {
+        // Fallback a mocks SOLO en dev cuando no hay nada cerca, para
+        // no dejar la UI vacía durante QA. En prod este array vendría
+        // vacío y mostraríamos el empty state real.
+        if (__DEV__) {
+          setRestaurants(MOCK_RESTAURANTS);
+          setFeatured(MOCK_RESTAURANTS.filter((r) => r.rating >= 4.7));
+        } else {
+          setRestaurants([]);
+          setFeatured([]);
+        }
+      } else {
+        setRestaurants(list);
+        setFeatured(list.filter((r: any) => Number(r.rating) >= 4.7));
+      }
     } catch (error) {
       console.error('Error loading restaurants:', error);
+      // En error de red, mostramos mocks para no dejar la UI rota.
+      setRestaurants(MOCK_RESTAURANTS);
+      setFeatured(MOCK_RESTAURANTS.filter((r) => r.rating >= 4.7));
     } finally {
       setIsLoading(false);
     }
@@ -255,7 +332,7 @@ export default function HomeScreen() {
       setRestaurants(MOCK_RESTAURANTS);
     } else {
       setSelectedCategory(categoryId);
-      setRestaurants(MOCK_RESTAURANTS.filter(r => r.category === categoryName));
+      setRestaurants(MOCK_RESTAURANTS.filter((r) => r.category === categoryName));
     }
   };
 
@@ -263,41 +340,62 @@ export default function HomeScreen() {
     navigation.navigate('RestaurantDetail', { restaurant });
   };
 
-  const handleSearch = () => {
-    if (searchQuery.trim()) {
-      const filtered = MOCK_RESTAURANTS.filter(r =>
-        r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.description.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setRestaurants(filtered);
-    } else {
-      setRestaurants(MOCK_RESTAURANTS);
-    }
-  };
-
-  const handleChatbotPress = () => {
-    navigation.navigate('Chatbot');
+  const handleSearchSubmit = () => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return setRestaurants(MOCK_RESTAURANTS);
+    setRestaurants(
+      MOCK_RESTAURANTS.filter(
+        (r) =>
+          r.name.toLowerCase().includes(q) ||
+          r.category.toLowerCase().includes(q) ||
+          r.description.toLowerCase().includes(q),
+      ),
+    );
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* HEADER */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.greeting}>Hola, {user?.name?.split(' ')[0] || 'Usuario'}</Text>
-          <TouchableOpacity style={styles.addressButton}>
-            <Ionicons name="location" size={16} color={COLORS.primary} />
-            <Text style={styles.addressText} numberOfLines={1}>Seleccionar direccion</Text>
-            <Ionicons name="chevron-down" size={16} color={COLORS.gray} />
+          <Text style={styles.eyebrow}>DEVOLÓN</Text>
+          <Text style={styles.greeting} numberOfLines={1}>
+            Hola, {user?.name?.split(' ')[0] || 'amigo'}
+          </Text>
+          <TouchableOpacity
+            style={styles.locationRow}
+            activeOpacity={0.7}
+            onPress={detectLocation}
+            disabled={locating}
+          >
+            <Ionicons name="location" size={13} color={colors.primary} />
+            <Text style={styles.locationText} numberOfLines={1}>
+              {locating
+                ? 'Detectando ubicación…'
+                : currentAddress || 'Toca para detectar tu ubicación'}
+            </Text>
+            <Ionicons
+              name={locating ? 'sync' : 'refresh'}
+              size={14}
+              color={colors.textMuted}
+            />
           </TouchableOpacity>
         </View>
+
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.iconButton} onPress={handleChatbotPress}>
-            <Ionicons name="chatbubble-ellipses" size={24} color={COLORS.secondary} />
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => navigation.navigate('Chatbot')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Cart')}>
-            <Ionicons name="cart" size={24} color={COLORS.secondary} />
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => navigation.navigate('Cart')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="cart-outline" size={20} color={colors.text} />
             {itemCount > 0 && (
               <View style={styles.cartBadge}>
                 <Text style={styles.cartBadgeText}>{itemCount > 9 ? '9+' : itemCount}</Text>
@@ -307,425 +405,449 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color={COLORS.gray} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar restaurantes o platillos..."
-            placeholderTextColor={COLORS.gray}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={handleSearch}
-            returnKeyType="search"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => { setSearchQuery(''); setRestaurants(MOCK_RESTAURANTS); }}>
-              <Ionicons name="close-circle" size={20} color={COLORS.gray} />
-            </TouchableOpacity>
-          )}
-        </View>
+      {/* SEARCH */}
+      <View style={styles.searchWrap}>
+        <Input
+          variant="filled"
+          icon="search"
+          placeholder="Restaurantes, platillos…"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          onSubmitEditing={handleSearchSubmit}
+          returnKeyType="search"
+          rightIcon={searchQuery ? 'close-circle' : undefined}
+          onRightIconPress={() => {
+            setSearchQuery('');
+            setRestaurants(MOCK_RESTAURANTS);
+          }}
+        />
       </View>
 
       <ScrollView
-        style={styles.content}
+        style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
         }
+        contentContainerStyle={{ paddingBottom: s['4xl'] }}
       >
-        {/* Quiu Banner */}
-        <TouchableOpacity style={styles.quiuBanner} onPress={handleChatbotPress}>
-          <View style={styles.quiuContent}>
-            <Text style={styles.quiuTitle}>Preguntale a Quiu</Text>
-            <Text style={styles.quiuSubtitle}>Te ayudo a encontrar lo que se te antoja</Text>
+        {/* CHATBOT BANNER */}
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => navigation.navigate('Chatbot')}
+          style={styles.devoBanner}
+        >
+          <View style={styles.devoLeft}>
+            <Text style={styles.devoEyebrow}>ASISTENTE INTELIGENTE</Text>
+            <Text style={styles.devoTitle}>Pregúntale a Devo</Text>
+            <Text style={styles.devoSubtitle}>
+              Te ayudo a encontrar lo que se te antoja.
+            </Text>
           </View>
-          <View style={styles.quiuIcon}>
-            <Text style={styles.quiuEmoji}>🤖</Text>
+          <View style={styles.devoIcon}>
+            <MaterialCommunityIcons
+              name="robot-happy"
+              size={28}
+              color={colors.onPrimary}
+            />
           </View>
         </TouchableOpacity>
 
-        {/* Categories */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Categorias</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesScroll}>
-            {CATEGORIES.map(category => (
-              <CategoryItem
-                key={category.id}
-                category={category}
-                onPress={() => handleCategoryPress(category.id, category.name)}
-              />
-            ))}
-          </ScrollView>
+        {/* CATEGORIES */}
+        <View style={styles.sectionWrap}>
+          <Section title="Categorías" eyebrow="EXPLORA" spacing={s.md}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesRow}>
+              {CATEGORIES.map((c) => (
+                <CategoryPill
+                  key={c.id}
+                  category={c}
+                  active={selectedCategory === c.id}
+                  onPress={() => handleCategoryPress(c.id, c.name)}
+                />
+              ))}
+            </ScrollView>
+          </Section>
         </View>
 
-        {/* Featured Restaurants */}
-        {featuredRestaurants.length > 0 && !selectedCategory && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Destacados</Text>
-            <FlatList
-              data={featuredRestaurants}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={item => item.id}
-              renderItem={({ item }) => (
-                <FeaturedRestaurantCard
-                  restaurant={item}
-                  onPress={() => handleRestaurantPress(item)}
-                />
-              )}
-              contentContainerStyle={styles.featuredList}
-            />
+        {/* FEATURED */}
+        {featured.length > 0 && !selectedCategory && (
+          <View style={styles.sectionWrap}>
+            <Section title="Destacados" eyebrow="TENDENCIA" spacing={s.md}>
+              <FlatList
+                data={featured}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(i) => i.id}
+                renderItem={({ item }) => (
+                  <FeaturedCard restaurant={item} onPress={() => handleRestaurantPress(item)} />
+                )}
+                contentContainerStyle={styles.featuredList}
+              />
+            </Section>
           </View>
         )}
 
-        {/* All Restaurants */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {selectedCategory ? `${CATEGORIES.find(c => c.id === selectedCategory)?.name || 'Restaurantes'}` : 'Todos los restaurantes'}
-          </Text>
-          {isLoading ? (
-            <ActivityIndicator size="large" color={COLORS.primary} style={styles.loader} />
-          ) : restaurants.length > 0 ? (
-            restaurants.map(restaurant => (
-              <RestaurantCard
-                key={restaurant.id}
-                restaurant={restaurant}
-                onPress={() => handleRestaurantPress(restaurant)}
-              />
-            ))
-          ) : (
-            <View style={styles.emptyState}>
-              <Ionicons name="restaurant-outline" size={48} color={COLORS.gray} />
-              <Text style={styles.emptyText}>No se encontraron restaurantes</Text>
-              <TouchableOpacity onPress={() => { setSelectedCategory(null); setSearchQuery(''); setRestaurants(MOCK_RESTAURANTS); }}>
-                <Text style={styles.emptyLink}>Ver todos</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+        {/* ALL */}
+        <View style={styles.sectionWrap}>
+          <Section
+            title={selectedCategory ? CATEGORIES.find((c) => c.id === selectedCategory)?.name || 'Restaurantes' : 'Cerca de ti'}
+            eyebrow={selectedCategory ? 'FILTRADO' : 'TODOS'}
+          >
+            {isLoading ? (
+              <ActivityIndicator color={colors.primary} style={{ marginTop: s.xl }} />
+            ) : restaurants.length > 0 ? (
+              restaurants.map((r) => (
+                <RestaurantRow key={r.id} restaurant={r} onPress={() => handleRestaurantPress(r)} />
+              ))
+            ) : (
+              <View style={styles.empty}>
+                <Ionicons name="restaurant-outline" size={48} color={colors.textFaint} />
+                <Text style={styles.emptyText}>No encontramos resultados</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setSelectedCategory(null);
+                    setSearchQuery('');
+                    setRestaurants(MOCK_RESTAURANTS);
+                  }}
+                >
+                  <Text style={styles.emptyLink}>Ver todos</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </Section>
         </View>
-
-        {/* Bottom padding */}
-        <View style={{ height: 100 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
+  container: { flex: 1, backgroundColor: colors.bg },
+
+  // ============ HEADER ============
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: COLORS.white,
+    paddingHorizontal: s.xl,
+    paddingTop: s.sm,
+    paddingBottom: s.sm,
   },
-  headerLeft: {
-    flex: 1,
+  headerLeft: { flex: 1 },
+  eyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
   },
   greeting: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.text,
+    color: colors.text,
+    fontSize: fontSize['2xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.5,
+    marginTop: 2,
   },
-  addressButton: {
+  locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    gap: s.xxs,
+    marginTop: 2,
   },
-  addressText: {
-    fontSize: 13,
-    color: COLORS.gray,
-    marginHorizontal: 4,
+  locationText: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
     maxWidth: 180,
   },
   headerRight: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    gap: s.xs,
   },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.lightGray,
-    justifyContent: 'center',
+  iconBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   cartBadge: {
     position: 'absolute',
     top: -2,
     right: -2,
-    backgroundColor: COLORS.primary,
-    borderRadius: 10,
+    backgroundColor: colors.primary,
+    borderRadius: radius.pill,
     minWidth: 18,
     height: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
     paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cartBadgeText: {
-    color: COLORS.white,
+    color: colors.onPrimary,
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: fontWeight.black,
   },
-  searchContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: COLORS.white,
+
+  // ============ SEARCH ============
+  searchWrap: {
+    paddingHorizontal: s.xl,
+    paddingTop: s.sm,
+    paddingBottom: s.md,
   },
-  searchBar: {
+
+  // ============ CHATBOT BANNER ============
+  devoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.lightGray,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 44,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 15,
-    color: COLORS.text,
-  },
-  content: {
-    flex: 1,
-  },
-  quiuBanner: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.primary,
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-  },
-  quiuContent: {
-    flex: 1,
-  },
-  quiuTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-  quiuSubtitle: {
-    fontSize: 13,
-    color: COLORS.white,
-    opacity: 0.9,
-    marginTop: 4,
-  },
-  quiuIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: COLORS.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  quiuEmoji: {
-    fontSize: 28,
-  },
-  section: {
-    marginTop: 24,
-    paddingHorizontal: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 12,
-  },
-  categoriesScroll: {
-    marginLeft: -16,
-    paddingLeft: 16,
-  },
-  categoryItem: {
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  categoryIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: COLORS.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  categoryEmoji: {
-    fontSize: 28,
-  },
-  categoryName: {
-    fontSize: 12,
-    color: COLORS.text,
-    marginTop: 8,
-    fontWeight: '500',
-  },
-  featuredList: {
-    paddingLeft: 0,
-  },
-  featuredCard: {
-    width: CARD_WIDTH,
-    marginRight: 16,
-    borderRadius: 16,
-    backgroundColor: COLORS.white,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    marginHorizontal: s.xl,
+    marginBottom: s.lg,
+    padding: s.lg,
+    borderRadius: radius.xl,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: 'rgba(255,194,14,0.25)',
     overflow: 'hidden',
   },
-  featuredImage: {
-    width: '100%',
-    height: 140,
+  devoLeft: { flex: 1 },
+  devoEyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+    marginBottom: 4,
   },
-  featuredOverlay: {
+  devoTitle: {
+    color: colors.text,
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.3,
+  },
+  devoSubtitle: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    marginTop: 2,
+  },
+  devoIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.glow,
+  },
+
+  // ============ SECTIONS ============
+  sectionWrap: { paddingHorizontal: s.xl },
+
+  // ============ CATEGORIES ============
+  categoriesRow: {
+    gap: s.xs,
+    paddingRight: s.lg,
+  },
+  categoryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: s.md,
+    paddingVertical: s.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  categoryPillActive: {
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    borderColor: colors.primary,
+  },
+  categoryEmoji: { fontSize: 16 },
+  categoryName: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.3,
+  },
+  categoryNameActive: { color: colors.primary },
+
+  // ============ FEATURED ============
+  featuredList: {
+    gap: s.sm,
+    paddingRight: s.lg,
+  },
+  featuredCard: {
+    width: FEATURED_CARD_W,
+    height: 200,
+    borderRadius: radius.xl,
+    backgroundColor: colors.bgRaised,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginRight: s.sm,
+  },
+  featuredImage: { width: '100%', height: '100%' },
+  featuredGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '70%',
+  },
+  featuredBadge: {
     position: 'absolute',
     top: 12,
     right: 12,
-  },
-  featuredBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderWidth: 1,
+    borderColor: colors.border,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: radius.pill,
   },
-  featuredRating: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginLeft: 4,
+  featuredBadgeText: {
+    color: colors.text,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.heavy,
   },
   featuredInfo: {
-    padding: 12,
+    position: 'absolute',
+    left: 14,
+    right: 14,
+    bottom: 14,
   },
   featuredName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  featuredCategory: {
-    fontSize: 13,
-    color: COLORS.gray,
-    marginTop: 2,
+    color: colors.text,
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.3,
   },
   featuredMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    gap: 6,
+    marginTop: 4,
+  },
+  featuredCategory: {
+    color: colors.primary,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  dot: {
+    width: 3,
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: colors.textFaint,
   },
   featuredMetaText: {
-    fontSize: 12,
-    color: COLORS.gray,
-    marginLeft: 4,
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
   },
-  featuredDot: {
-    color: COLORS.gray,
-    marginHorizontal: 6,
-  },
-  restaurantCard: {
+
+  // ============ ROW (vertical card) ============
+  row: {
     flexDirection: 'row',
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    marginBottom: 12,
-    padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    gap: s.md,
+    marginBottom: s.sm,
   },
-  restaurantImage: {
-    width: 90,
-    height: 90,
-    borderRadius: 12,
+  rowImage: {
+    width: 76,
+    height: 76,
+    borderRadius: radius.md,
   },
-  restaurantInfo: {
-    flex: 1,
-    marginLeft: 12,
-    justifyContent: 'center',
-  },
-  restaurantHeader: {
+  rowBody: { flex: 1 },
+  rowHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
   },
-  restaurantName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.text,
+  rowName: {
     flex: 1,
-    marginRight: 8,
+    color: colors.text,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
+    marginRight: s.xs,
   },
-  ratingBadge: {
+  rowRating: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.lightGray,
+    gap: 3,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 8,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,194,14,0.12)',
   },
-  ratingText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginLeft: 2,
+  rowRatingText: {
+    color: colors.primary,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.heavy,
   },
-  restaurantCategory: {
-    fontSize: 13,
-    color: COLORS.primary,
+  rowCategory: {
+    color: colors.primary,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
     marginTop: 2,
   },
-  restaurantDescription: {
-    fontSize: 12,
-    color: COLORS.gray,
+  rowDescription: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
     marginTop: 4,
-    lineHeight: 16,
+    lineHeight: 18,
   },
-  restaurantMeta: {
+  rowMeta: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: s.xs,
+    marginTop: s.sm,
+  },
+  metaPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
-    gap: 12,
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bgRaised,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   metaText: {
-    fontSize: 11,
-    color: COLORS.gray,
-    marginLeft: 4,
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
   },
-  loader: {
-    marginTop: 40,
-  },
-  emptyState: {
+
+  // ============ EMPTY ============
+  empty: {
     alignItems: 'center',
-    paddingVertical: 40,
+    paddingVertical: s['2xl'],
+    gap: s.sm,
   },
   emptyText: {
-    fontSize: 15,
-    color: COLORS.gray,
-    marginTop: 12,
+    color: colors.textMuted,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
   },
   emptyLink: {
-    fontSize: 14,
-    color: COLORS.primary,
-    fontWeight: '600',
-    marginTop: 8,
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.3,
   },
 });

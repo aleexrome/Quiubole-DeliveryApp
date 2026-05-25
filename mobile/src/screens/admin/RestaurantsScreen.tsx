@@ -1,8 +1,11 @@
 // ==========================================
-// GESTION DE RESTAURANTES (ADMIN)
+// DEVOLÓN — Admin Restaurants
+//
+// Lista de negocios con filtros (pendientes / aprobados / todos) y
+// acciones inline aprobar / rechazar para pendientes.
 // ==========================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,57 +14,86 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { adminApi } from '../../services/api';
 import { Restaurant } from '../../types';
+import { Card, EmptyState } from '../../components/ui';
+import {
+  colors,
+  s,
+  radius,
+  fontSize,
+  fontWeight,
+  tracking,
+} from '../../theme';
+
+type RestaurantsStats = { all: number; approved: number; pending: number };
+const EMPTY_R_STATS: RestaurantsStats = { all: 0, approved: 0, pending: 0 };
 
 export default function AdminRestaurantsScreen() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const [filter, setFilter] = useState<'pending' | 'approved' | 'all'>('pending');
+  const [stats, setStats] = useState<RestaurantsStats>(EMPTY_R_STATS);
+  const [filter, setFilter] = useState<'pending' | 'approved' | 'all'>(
+    'pending',
+  );
 
   useEffect(() => {
     loadRestaurants();
+    loadStats();
   }, [filter]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadRestaurants();
+      loadStats();
+    }, [filter]),
+  );
 
   const loadRestaurants = async () => {
     try {
-      const data = filter === 'pending'
-        ? await adminApi.getPendingRestaurants()
-        : await adminApi.getPendingRestaurants(); // TODO: different endpoint
-      setRestaurants(data);
+      const data = await adminApi.getRestaurants({ status: filter });
+      setRestaurants(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error loading restaurants:', error);
+      setRestaurants([]);
+    }
+  };
+
+  const loadStats = async () => {
+    try {
+      const data = await adminApi.getRestaurantsStats();
+      setStats(data);
+    } catch (error) {
+      console.error('Error loading restaurants stats:', error);
     }
   };
 
   const handleApprove = async (restaurant: Restaurant) => {
-    Alert.alert(
-      'Aprobar Negocio',
-      `¿Aprobar "${restaurant.name}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Aprobar',
-          onPress: async () => {
-            try {
-              await adminApi.approveRestaurant(restaurant.id);
-              loadRestaurants();
-              Alert.alert('Exito', 'Negocio aprobado');
-            } catch (error) {
-              Alert.alert('Error', 'No se pudo aprobar');
-            }
-          },
+    Alert.alert('Aprobar negocio', `¿Aprobar "${restaurant.name}"?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Aprobar',
+        onPress: async () => {
+          try {
+            await adminApi.approveRestaurant(restaurant.id);
+            loadRestaurants();
+            Alert.alert('Éxito', 'Negocio aprobado');
+          } catch (error) {
+            Alert.alert('Error', 'No se pudo aprobar');
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleReject = async (restaurant: Restaurant) => {
     Alert.prompt(
-      'Rechazar Negocio',
-      '¿Por que rechazas este negocio?',
+      'Rechazar negocio',
+      '¿Por qué rechazas este negocio?',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -69,7 +101,10 @@ export default function AdminRestaurantsScreen() {
           style: 'destructive',
           onPress: async (reason) => {
             try {
-              await adminApi.rejectRestaurant(restaurant.id, reason || 'No cumple requisitos');
+              await adminApi.rejectRestaurant(
+                restaurant.id,
+                reason || 'No cumple requisitos',
+              );
               loadRestaurants();
             } catch (error) {
               Alert.alert('Error', 'No se pudo rechazar');
@@ -77,88 +112,149 @@ export default function AdminRestaurantsScreen() {
           },
         },
       ],
-      'plain-text'
+      'plain-text',
     );
   };
 
   const renderRestaurant = ({ item: restaurant }: { item: Restaurant }) => (
-    <View style={styles.restaurantCard}>
-      <Image
-        source={{ uri: restaurant.logo || 'https://via.placeholder.com/80' }}
-        style={styles.logo}
-      />
-      <View style={styles.info}>
-        <Text style={styles.name}>{restaurant.name}</Text>
-        <Text style={styles.category}>{restaurant.category}</Text>
-        <Text style={styles.address} numberOfLines={1}>
-          {restaurant.address.street}
-        </Text>
-        <View style={styles.meta}>
-          {restaurant.isApproved ? (
-            <View style={styles.approvedBadge}>
-              <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
-              <Text style={styles.approvedText}>Aprobado</Text>
-            </View>
-          ) : (
-            <View style={styles.pendingBadge}>
-              <Ionicons name="time" size={14} color="#EAB308" />
-              <Text style={styles.pendingText}>Pendiente</Text>
-            </View>
-          )}
+    <Card variant="glass" padding={s.md} borderRadius={radius.xl}>
+      <View style={styles.row}>
+        <Image
+          source={{ uri: restaurant.logo || 'https://via.placeholder.com/80' }}
+          style={styles.logo}
+        />
+        <View style={styles.info}>
+          <Text style={styles.name} numberOfLines={1}>
+            {restaurant.name}
+          </Text>
+          <Text style={styles.category} numberOfLines={1}>
+            {restaurant.category}
+          </Text>
+          <Text style={styles.address} numberOfLines={1}>
+            {restaurant.address.street}
+          </Text>
+          <View style={styles.meta}>
+            {restaurant.isApproved ? (
+              <View style={styles.approvedBadge}>
+                <Ionicons
+                  name="checkmark-circle"
+                  size={12}
+                  color={colors.success}
+                />
+                <Text style={styles.approvedText}>Aprobado</Text>
+              </View>
+            ) : (
+              <View style={styles.pendingBadge}>
+                <Ionicons name="time" size={12} color={colors.primary} />
+                <Text style={styles.pendingText}>Pendiente</Text>
+              </View>
+            )}
+          </View>
         </View>
       </View>
+
       {!restaurant.isApproved && (
         <View style={styles.actions}>
           <TouchableOpacity
             style={styles.rejectBtn}
             onPress={() => handleReject(restaurant)}
+            activeOpacity={0.85}
           >
-            <Ionicons name="close" size={20} color="#EF4444" />
+            <Ionicons name="close" size={16} color={colors.danger} />
+            <Text style={styles.rejectBtnText}>RECHAZAR</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.approveBtn}
             onPress={() => handleApprove(restaurant)}
+            activeOpacity={0.85}
           >
-            <Ionicons name="checkmark" size={20} color="#fff" />
+            <Ionicons name="checkmark" size={16} color={colors.onPrimary} />
+            <Text style={styles.approveBtnText}>APROBAR</Text>
           </TouchableOpacity>
         </View>
       )}
-    </View>
+    </Card>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* HEADER */}
       <View style={styles.header}>
+        <Text style={styles.eyebrow}>GESTIÓN</Text>
         <Text style={styles.title}>Negocios</Text>
       </View>
 
-      {/* Filters */}
-      <View style={styles.filters}>
-        {(['pending', 'approved', 'all'] as const).map((f) => (
-          <TouchableOpacity
-            key={f}
-            style={[styles.filterBtn, filter === f && styles.filterBtnActive]}
-            onPress={() => setFilter(f)}
-          >
-            <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
-              {f === 'pending' ? 'Pendientes' : f === 'approved' ? 'Aprobados' : 'Todos'}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      {/* KPIs grandes — números amarillos hero */}
+      <View style={styles.statsWrap}>
+        <Card variant="raised" padding={s.md} borderRadius={radius.lg} style={styles.statCard}>
+          <Text style={styles.statLabel}>PENDIENTES</Text>
+          <Text style={styles.statValue}>{stats.pending}</Text>
+        </Card>
+        <Card variant="raised" padding={s.md} borderRadius={radius.lg} style={styles.statCard}>
+          <Text style={styles.statLabel}>APROBADOS</Text>
+          <Text style={styles.statValue}>{stats.approved}</Text>
+        </Card>
+        <Card variant="raised" padding={s.md} borderRadius={radius.lg} style={styles.statCard}>
+          <Text style={styles.statLabel}>TOTAL</Text>
+          <Text style={styles.statValue}>{stats.all}</Text>
+        </Card>
       </View>
 
-      {/* List */}
+      {/* FILTERS con count badge */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filters}
+        style={styles.filtersScroll}
+      >
+        {(['pending', 'approved', 'all'] as const).map((f) => {
+          const active = filter === f;
+          const count =
+            f === 'pending' ? stats.pending :
+            f === 'approved' ? stats.approved :
+            stats.all;
+          const label =
+            f === 'pending' ? 'Pendientes' :
+            f === 'approved' ? 'Aprobados' :
+            'Todos';
+          return (
+            <TouchableOpacity
+              key={f}
+              activeOpacity={0.85}
+              onPress={() => setFilter(f)}
+              style={[styles.filterPill, active && styles.filterPillActive]}
+            >
+              <Text style={[styles.filterText, active && styles.filterTextActive]}>
+                {label}
+              </Text>
+              <View style={[styles.filterCount, active && styles.filterCountActive]}>
+                <Text
+                  style={[
+                    styles.filterCountText,
+                    active && styles.filterCountTextActive,
+                  ]}
+                >
+                  {count}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {/* LIST */}
       <FlatList
         data={restaurants}
         renderItem={renderRestaurant}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        ItemSeparatorComponent={() => <View style={{ height: s.sm }} />}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="restaurant-outline" size={64} color="#E5E5E5" />
-            <Text style={styles.emptyText}>No hay negocios</Text>
-          </View>
+          <EmptyState
+            icon="restaurant-outline"
+            title="Sin negocios"
+            subtitle="No hay negocios para este filtro."
+          />
         }
       />
     </SafeAreaView>
@@ -166,135 +262,221 @@ export default function AdminRestaurantsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
+  container: { flex: 1, backgroundColor: colors.bg },
+
+  // ============ HEADER ============
   header: {
-    padding: 20,
-    backgroundColor: '#fff',
+    paddingHorizontal: s.xl,
+    paddingTop: s.sm,
+    paddingBottom: s.md,
+  },
+  eyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0F172A',
+    color: colors.text,
+    fontSize: fontSize['3xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.6,
+    marginTop: 2,
+  },
+
+  // ============ FILTERS ============
+  filtersScroll: {
+    flexGrow: 0,
   },
   filters: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 8,
+    paddingHorizontal: s.xl,
+    paddingTop: 4,
+    paddingBottom: s.md + 4,
+    gap: s.xs,
+    alignItems: 'center',
   },
-  filterBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    backgroundColor: '#fff',
-  },
-  filterBtnActive: {
-    backgroundColor: '#FF6B35',
-  },
-  filterText: {
-    fontSize: 13,
-    color: '#666',
-  },
-  filterTextActive: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  list: {
-    padding: 16,
-  },
-  restaurantCard: {
+  filterPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
+    gap: 6,
+    paddingHorizontal: s.md,
+    height: 36,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  filterPillActive: {
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    borderColor: colors.primary,
+  },
+  filterText: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.3,
+  },
+  filterTextActive: { color: colors.primary },
+  filterCount: {
+    minWidth: 22,
+    height: 20,
+    paddingHorizontal: 6,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bgRaised,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterCountActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  filterCountText: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.black,
+    letterSpacing: 0.2,
+  },
+  filterCountTextActive: { color: colors.onPrimary },
+
+  // ============ STATS (KPI cards arriba) ============
+  statsWrap: {
+    flexDirection: 'row',
+    gap: s.xs,
+    paddingHorizontal: s.xl,
+    paddingBottom: s.md,
+  },
+  statCard: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  statLabel: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
+  },
+  statValue: {
+    color: colors.primary,
+    fontSize: fontSize['2xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.4,
+    marginTop: 4,
+  },
+
+  // ============ LIST ============
+  list: {
+    paddingHorizontal: s.xl,
+    paddingBottom: s['4xl'],
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s.sm,
   },
   logo: {
     width: 60,
     height: 60,
-    borderRadius: 12,
-    backgroundColor: '#E5E5E5',
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
   },
-  info: {
-    flex: 1,
-    marginLeft: 12,
-  },
+  info: { flex: 1 },
   name: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#0F172A',
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
   },
   category: {
-    fontSize: 14,
-    color: '#FF6B35',
+    color: colors.primary,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
     marginTop: 2,
   },
   address: {
-    fontSize: 12,
-    color: '#666',
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
     marginTop: 4,
   },
   meta: {
     flexDirection: 'row',
-    marginTop: 8,
+    marginTop: 6,
   },
   approvedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0FDF4',
+    backgroundColor: 'rgba(31,174,111,0.12)',
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
     gap: 4,
   },
   approvedText: {
-    fontSize: 12,
-    color: '#22C55E',
-    fontWeight: '600',
+    fontSize: fontSize.xxs,
+    color: colors.success,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   pendingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEFCE8',
+    backgroundColor: 'rgba(255,194,14,0.12)',
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
     gap: 4,
   },
   pendingText: {
-    fontSize: 12,
-    color: '#EAB308',
-    fontWeight: '600',
+    fontSize: fontSize.xxs,
+    color: colors.primary,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
+
+  // ============ ACTIONS ============
   actions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: s.xs,
+    marginTop: s.sm,
   },
   rejectBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FEF2F2',
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 4,
+    paddingVertical: s.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(229,72,77,0.32)',
+    backgroundColor: 'rgba(229,72,77,0.08)',
+  },
+  rejectBtnText: {
+    color: colors.danger,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.black,
+    letterSpacing: 1.2,
   },
   approveBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#22C55E',
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 4,
+    paddingVertical: s.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
   },
-  empty: {
-    alignItems: 'center',
-    paddingVertical: 64,
-  },
-  emptyText: {
-    color: '#666',
-    marginTop: 12,
+  approveBtnText: {
+    color: colors.onPrimary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.black,
+    letterSpacing: 1.2,
   },
 });

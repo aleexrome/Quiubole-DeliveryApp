@@ -8,35 +8,46 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { IsEmail, IsString, IsOptional, MinLength } from 'class-validator';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Public } from './decorators/public.decorator';
 
+// NOTA: decoradores de class-validator agregados — el ValidationPipe global
+// usa whitelist+forbidNonWhitelisted y sin ellos rechazaba todas las props.
+// (Fix de bug pre-existente que impedía registro/login.)
+
 class RegisterDto {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-  phone?: string;
+  @IsEmail() email: string;
+  @IsString() @MinLength(6) password: string;
+  @IsString() firstName: string;
+  @IsString() lastName: string;
+  @IsOptional() @IsString() phone?: string;
+  // Rol que el usuario eligió en el flujo de registro (customer/driver/
+  // restaurant/editor). Si no llega, default 'customer' en el service.
+  @IsOptional() @IsString() role?: string;
+  // Municipio donde opera (Tenancingo, etc.) — viene del dropdown en
+  // RegisterScreen. Requerido para que el feed pueda filtrar.
+  @IsOptional() @IsString() zone?: string;
 }
 
 class LoginDto {
-  email: string;
-  password: string;
+  @IsEmail() email: string;
+  @IsString() password: string;
 }
 
 class VerifyEmailDto {
-  email: string;
-  code: string;
+  @IsEmail() email: string;
+  @IsString() code: string;
 }
 
 class ForgotPasswordDto {
-  email: string;
+  @IsEmail() email: string;
 }
 
 class ResetPasswordDto {
-  token: string;
-  password: string;
+  @IsString() token: string;
+  @IsString() @MinLength(6) password: string;
 }
 
 @Controller('auth')

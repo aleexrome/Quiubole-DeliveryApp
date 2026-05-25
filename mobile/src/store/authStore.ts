@@ -33,6 +33,8 @@ interface RegisterData {
   name: string;
   phone: string;
   role: UserRole;
+  /** Municipio donde el usuario usará Devolón (Tenancingo, etc.). */
+  zone?: string;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -50,7 +52,7 @@ export const useAuthStore = create<AuthState>()(
           const response = await authApi.login({ email, password });
           set({
             user: response.user,
-            token: response.token,
+            token: response.accessToken ?? response.token,
             isAuthenticated: true,
             isLoading: false,
           });
@@ -69,7 +71,7 @@ export const useAuthStore = create<AuthState>()(
           const response = await authApi.register(data);
           set({
             user: response.user,
-            token: response.token,
+            token: response.accessToken ?? response.token,
             isAuthenticated: true,
             isLoading: false,
           });

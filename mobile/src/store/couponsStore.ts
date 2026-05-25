@@ -411,14 +411,20 @@ export const formatCouponValue = (coupon: Coupon): string => {
   }
 };
 
-// Helper para obtener el color del badge del cupon
+// Helper para obtener el color del badge del cupón.
+// Devuelve tokens del theme Devolón. El amarillo brand domina; el resto
+// son acentos puntuales que NO deben competir con el brand — por eso
+// todos los tipos secundarios usan tonos semánticos ya definidos en el
+// theme (success, info) en lugar de paletas ad-hoc.
+import { colors as themeColors } from '../theme';
+
 export const getCouponColor = (source: Coupon['source']): string => {
-  const colors = {
-    promo: '#FF6B35',
-    referral: '#4CAF50',
-    loyalty: '#FFD700',
-    special: '#9C27B0',
-    birthday: '#E91E63',
+  const map: Record<Coupon['source'], string> = {
+    promo: themeColors.primary,
+    referral: themeColors.success,
+    loyalty: themeColors.primary,
+    special: themeColors.info,
+    birthday: themeColors.primary,
   };
-  return colors[source] || '#FF6B35';
+  return map[source] || themeColors.primary;
 };

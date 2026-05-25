@@ -1,24 +1,16 @@
 // ==========================================
-// EMPTY STATE - ESTADOS VACIOS
+// DEVOLÓN — <EmptyState>
+//
+// Premium dark empty state: ícono atenuado dentro de un halo glass,
+// título sólido en blanco y acción opcional (Button primary).
+// Centraliza estilos vía theme; no introducir colores ad-hoc aquí.
 // ==========================================
 
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-} from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-
-const COLORS = {
-  primary: '#FF6B35',
-  background: '#F8F9FA',
-  white: '#FFFFFF',
-  gray: '#6C757D',
-  lightGray: '#E9ECEF',
-  text: '#212529',
-};
+import { colors, s, radius, fontSize, fontWeight } from '../../theme';
+import Button from './Button';
 
 interface EmptyStateProps {
   icon?: keyof typeof Ionicons.glyphMap;
@@ -37,15 +29,15 @@ export default function EmptyState({
 }: EmptyStateProps) {
   return (
     <View style={styles.container}>
-      <View style={styles.iconContainer}>
-        <Ionicons name={icon} size={64} color={COLORS.lightGray} />
+      <View style={styles.iconHalo}>
+        <Ionicons name={icon} size={48} color={colors.textMuted} />
       </View>
       <Text style={styles.title}>{title}</Text>
       {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
       {actionLabel && onAction && (
-        <TouchableOpacity style={styles.actionButton} onPress={onAction}>
-          <Text style={styles.actionText}>{actionLabel}</Text>
-        </TouchableOpacity>
+        <View style={styles.action}>
+          <Button label={actionLabel} onPress={onAction} size="md" fullWidth={false} />
+        </View>
       )}
     </View>
   );
@@ -56,35 +48,37 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
-    minHeight: 300,
+    padding: s['2xl'],
+    minHeight: 320,
   },
-  iconContainer: {
-    marginBottom: 16,
+  iconHalo: {
+    width: 96,
+    height: 96,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: s.lg,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.text,
+    color: colors.text,
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.3,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 14,
-    color: COLORS.gray,
+    color: colors.textMuted,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.medium,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: s.xs,
     lineHeight: 20,
+    paddingHorizontal: s.md,
   },
-  actionButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginTop: 24,
-  },
-  actionText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.white,
+  action: {
+    marginTop: s.xl,
   },
 });

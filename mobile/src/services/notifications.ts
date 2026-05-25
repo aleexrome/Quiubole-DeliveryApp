@@ -290,20 +290,20 @@ class NotificationService {
   // ==========================================
 
   private async setupAndroidChannels() {
-    // Canal principal para pedidos (alta prioridad)
-    await Notifications.setNotificationChannelAsync('quiubole_orders', {
+    // Canal principal para pedidos (alta prioridad). LED amarillo brand.
+    await Notifications.setNotificationChannelAsync('devolon_orders', {
       name: 'Pedidos',
       description: 'Notificaciones de pedidos y entregas',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#FF6B35',
+      lightColor: '#FFC20E', // Pantone 123 C — colors.primary del theme
       sound: 'default',
       enableVibrate: true,
       enableLights: true,
     });
 
     // Canal para promociones (prioridad media)
-    await Notifications.setNotificationChannelAsync('quiubole_promotions', {
+    await Notifications.setNotificationChannelAsync('devolon_promotions', {
       name: 'Promociones',
       description: 'Ofertas y promociones',
       importance: Notifications.AndroidImportance.DEFAULT,
@@ -311,7 +311,7 @@ class NotificationService {
     });
 
     // Canal para chat (prioridad alta)
-    await Notifications.setNotificationChannelAsync('quiubole_chat', {
+    await Notifications.setNotificationChannelAsync('devolon_chat', {
       name: 'Mensajes',
       description: 'Mensajes del chat',
       importance: Notifications.AndroidImportance.HIGH,
@@ -319,7 +319,7 @@ class NotificationService {
     });
 
     // Canal general
-    await Notifications.setNotificationChannelAsync('quiubole_general', {
+    await Notifications.setNotificationChannelAsync('devolon_general', {
       name: 'General',
       description: 'Notificaciones generales',
       importance: Notifications.AndroidImportance.DEFAULT,

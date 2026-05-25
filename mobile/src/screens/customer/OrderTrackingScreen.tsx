@@ -1,5 +1,11 @@
 // ==========================================
-// ORDER TRACKING SCREEN - Rastreo en tiempo real
+// DEVOLÓN — Order Tracking
+//
+// Mapa fullscreen edge-to-edge con markers dark-themed (restaurante negro,
+// destino verde-success, repartidor amarillo glow). Header transparente
+// flotante con back. Bottom sheet glass con progress bar amarilla + ETA
+// hero number, driver card con avatar + actions (call/chat). Map controls
+// flotantes derecha como halos glass.
 // ==========================================
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -14,23 +20,19 @@ import {
   Linking,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import locationService, { Coordinates } from '../../services/location';
-
-// Colores de Quiubole
-const COLORS = {
-  primary: '#FF6B35',
-  secondary: '#2E4057',
-  success: '#4CAF50',
-  warning: '#FFC107',
-  background: '#F8F9FA',
-  white: '#FFFFFF',
-  gray: '#6C757D',
-  lightGray: '#E9ECEF',
-  text: '#212529',
-  textLight: '#6C757D',
-};
+import {
+  colors,
+  s,
+  radius,
+  shadows,
+  fontSize,
+  fontWeight,
+  tracking,
+} from '../../theme';
 
 const { width, height } = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
@@ -98,6 +100,17 @@ const ORDER_STATUSES: Record<string, OrderStatus> = {
   },
 };
 
+// Dark map style — Tesla / Linear vibe
+const DARK_MAP_STYLE = [
+  { elementType: 'geometry', stylers: [{ color: '#0A0A0A' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#8C8C8C' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#0A0A0A' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1A1A1A' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#000000' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#050505' }] },
+  { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+];
+
 export default function OrderTrackingScreen({ navigation, route }: OrderTrackingScreenProps) {
   const { orderId } = route.params;
   const mapRef = useRef<MapView>(null);
@@ -110,43 +123,32 @@ export default function OrderTrackingScreen({ navigation, route }: OrderTracking
     lng: -99.1332,
   });
   const [restaurantLocation, setRestaurantLocation] = useState<Coordinates>({
-    lat: 19.4350,
-    lng: -99.1380,
+    lat: 19.435,
+    lng: -99.138,
   });
-  const [driver, setDriver] = useState({
+  const [driver] = useState({
     name: 'Carlos López',
-    photo: null,
+    photo: null as string | null,
     phone: '55 1234 5678',
     rating: 4.8,
     vehicle: 'Moto Honda',
     plate: 'ABC-123',
   });
   const [routeCoordinates, setRouteCoordinates] = useState<Coordinates[]>([]);
-  const [eta, setEta] = useState('15 min');
+  const [eta] = useState('15 min');
 
   useEffect(() => {
     loadOrderData();
-    startDriverTracking();
-
-    return () => {
-      // Cleanup
-    };
+    const cleanup = startDriverTracking();
+    return cleanup;
   }, [orderId]);
 
   const loadOrderData = async () => {
     try {
-      // TODO: Cargar datos del pedido desde la API
-      // const order = await api.orders.getById(orderId);
-
-      // Datos de ejemplo
-      setRestaurantLocation({ lat: 19.4350, lng: -99.1380 });
-      setDeliveryLocation({ lat: 19.4300, lng: -99.1300 });
+      setRestaurantLocation({ lat: 19.435, lng: -99.138 });
+      setDeliveryLocation({ lat: 19.43, lng: -99.13 });
       setOrderStatus(ORDER_STATUSES.picked_up);
-
-      // Simular ubicación del repartidor
-      setDriverLocation({ lat: 19.4330, lng: -99.1350 });
-
-      // Generar ruta simulada
+      setDriverLocation({ lat: 19.433, lng: -99.135 });
       generateRoute();
     } catch (error) {
       console.error('Error loading order:', error);
@@ -156,35 +158,31 @@ export default function OrderTrackingScreen({ navigation, route }: OrderTracking
   };
 
   const startDriverTracking = () => {
-    // Simular movimiento del repartidor
     const interval = setInterval(() => {
       setDriverLocation((prev) => {
         if (!prev) return null;
-
-        // Mover hacia el destino
         const newLat = prev.lat - 0.0002 + Math.random() * 0.0001;
         const newLng = prev.lng + 0.0002 + Math.random() * 0.0001;
-
-        // Calcular ETA
-        const distance = locationService.formatDistance(
+        locationService.formatDistance(
           Math.sqrt(
             Math.pow((deliveryLocation.lat - newLat) * 111000, 2) +
-              Math.pow((deliveryLocation.lng - newLng) * 111000 * Math.cos(newLat * Math.PI / 180), 2)
-          )
+              Math.pow(
+                (deliveryLocation.lng - newLng) *
+                  111000 *
+                  Math.cos((newLat * Math.PI) / 180),
+                2,
+              ),
+          ),
         );
-
         return { lat: newLat, lng: newLng };
       });
     }, 3000);
-
     return () => clearInterval(interval);
   };
 
   const generateRoute = () => {
-    // Generar puntos intermedios para la ruta
     const points: Coordinates[] = [];
     const steps = 20;
-
     for (let i = 0; i <= steps; i++) {
       const t = i / steps;
       points.push({
@@ -192,7 +190,6 @@ export default function OrderTrackingScreen({ navigation, route }: OrderTracking
         lng: restaurantLocation.lng + (deliveryLocation.lng - restaurantLocation.lng) * t,
       });
     }
-
     setRouteCoordinates(points);
   };
 
@@ -213,28 +210,79 @@ export default function OrderTrackingScreen({ navigation, route }: OrderTracking
         { latitude: deliveryLocation.lat, longitude: deliveryLocation.lng },
         { latitude: restaurantLocation.lat, longitude: restaurantLocation.lng },
       ];
-
       if (driverLocation) {
-        coordinates.push({ latitude: driverLocation.lat, longitude: driverLocation.lng });
+        coordinates.push({
+          latitude: driverLocation.lat,
+          longitude: driverLocation.lng,
+        });
       }
-
       mapRef.current.fitToCoordinates(coordinates, {
-        edgePadding: { top: 100, right: 50, bottom: 300, left: 50 },
+        edgePadding: { top: 140, right: 60, bottom: 360, left: 60 },
         animated: true,
       });
     }
   };
 
   const callDriver = () => {
-    const phoneUrl = Platform.OS === 'ios'
-      ? `telprompt:${driver.phone}`
-      : `tel:${driver.phone}`;
+    const phoneUrl =
+      Platform.OS === 'ios' ? `telprompt:${driver.phone}` : `tel:${driver.phone}`;
     Linking.openURL(phoneUrl);
   };
 
-  const messageDriver = () => {
-    // TODO: Abrir chat con el repartidor
-    navigation.navigate('Chat', { driverId: 'driver_id', orderId });
+  const messageDriver = async () => {
+    try {
+      const { messagesApi } = await import('../../services/api');
+      const participants = await messagesApi.getParticipants(orderId);
+      const target = participants.find((p: any) => p.role === 'driver');
+      if (!target) {
+        const { Alert } = await import('react-native');
+        Alert.alert(
+          'Aún sin repartidor',
+          'Tu pedido todavía no tiene un repartidor asignado. Inténtalo cuando aparezca el rider en pantalla.',
+        );
+        return;
+      }
+      navigation.navigate('Chat', {
+        orderId,
+        otherUserId: target.userId,
+        otherUserName: driver.name,
+        otherUserRole: 'driver',
+      });
+    } catch (error: any) {
+      const { Alert } = await import('react-native');
+      Alert.alert(
+        'No se pudo abrir el chat',
+        error?.response?.data?.message || 'Intenta de nuevo.',
+      );
+    }
+  };
+
+  const messageRestaurant = async () => {
+    try {
+      const { messagesApi } = await import('../../services/api');
+      const participants = await messagesApi.getParticipants(orderId);
+      const target = participants.find((p: any) => p.role === 'restaurant');
+      if (!target) {
+        const { Alert } = await import('react-native');
+        Alert.alert(
+          'Restaurante no disponible',
+          'No se puede chatear con el restaurante en este momento.',
+        );
+        return;
+      }
+      navigation.navigate('Chat', {
+        orderId,
+        otherUserId: target.userId,
+        otherUserName: 'Restaurante',
+        otherUserRole: 'restaurant',
+      });
+    } catch (error: any) {
+      const { Alert } = await import('react-native');
+      Alert.alert(
+        'No se pudo abrir el chat',
+        error?.response?.data?.message || 'Intenta de nuevo.',
+      );
+    }
   };
 
   useEffect(() => {
@@ -246,19 +294,20 @@ export default function OrderTrackingScreen({ navigation, route }: OrderTracking
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Cargando...</Text>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Conectando con el repartidor…</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Mapa */}
+      {/* ============ Map ============ */}
       <MapView
         ref={mapRef}
         style={styles.map}
         provider={PROVIDER_GOOGLE}
+        customMapStyle={DARK_MAP_STYLE}
         initialRegion={{
           latitude: deliveryLocation.lat,
           longitude: deliveryLocation.lng,
@@ -268,7 +317,6 @@ export default function OrderTrackingScreen({ navigation, route }: OrderTracking
         showsUserLocation
         showsMyLocationButton={false}
       >
-        {/* Marker del restaurante */}
         <Marker
           coordinate={{
             latitude: restaurantLocation.lat,
@@ -277,11 +325,10 @@ export default function OrderTrackingScreen({ navigation, route }: OrderTracking
           title="Restaurante"
         >
           <View style={styles.restaurantMarker}>
-            <Ionicons name="restaurant" size={20} color={COLORS.white} />
+            <Ionicons name="restaurant" size={18} color={colors.text} />
           </View>
         </Marker>
 
-        {/* Marker de entrega */}
         <Marker
           coordinate={{
             latitude: deliveryLocation.lat,
@@ -290,11 +337,10 @@ export default function OrderTrackingScreen({ navigation, route }: OrderTracking
           title="Tu ubicación"
         >
           <View style={styles.deliveryMarker}>
-            <Ionicons name="home" size={20} color={COLORS.white} />
+            <Ionicons name="home" size={18} color={colors.text} />
           </View>
         </Marker>
 
-        {/* Marker del repartidor */}
         {driverLocation && orderStatus.progress >= 0.55 && (
           <Marker
             coordinate={{
@@ -304,12 +350,11 @@ export default function OrderTrackingScreen({ navigation, route }: OrderTracking
             title={driver.name}
           >
             <View style={styles.driverMarker}>
-              <Ionicons name="bicycle" size={24} color={COLORS.white} />
+              <Ionicons name="bicycle" size={22} color={colors.onPrimary} />
             </View>
           </Marker>
         )}
 
-        {/* Línea de ruta */}
         {routeCoordinates.length > 0 && (
           <Polyline
             coordinates={routeCoordinates.map((c) => ({
@@ -317,40 +362,76 @@ export default function OrderTrackingScreen({ navigation, route }: OrderTracking
               longitude: c.lng,
             }))}
             strokeWidth={4}
-            strokeColor={COLORS.primary}
+            strokeColor={colors.primary}
             lineDashPattern={[1]}
           />
         )}
       </MapView>
 
-      {/* Botones del mapa */}
+      {/* ============ Floating Header ============ */}
+      <SafeAreaView edges={['top']} style={styles.topBar} pointerEvents="box-none">
+        <TouchableOpacity
+          style={styles.topIconBtn}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
+        </TouchableOpacity>
+        <View style={styles.topCenter}>
+          <Text style={styles.topEyebrow}>EN VIVO</Text>
+          <Text style={styles.topTitle}>Tu pedido</Text>
+        </View>
+        <View style={{ width: 40 }} />
+      </SafeAreaView>
+
+      {/* ============ Map Controls ============ */}
       <View style={styles.mapButtons}>
-        <TouchableOpacity style={styles.mapButton} onPress={fitAllMarkers}>
-          <Ionicons name="expand" size={20} color={COLORS.secondary} />
+        <TouchableOpacity
+          style={styles.mapButton}
+          onPress={fitAllMarkers}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="expand" size={18} color={colors.text} />
         </TouchableOpacity>
         {driverLocation && (
-          <TouchableOpacity style={styles.mapButton} onPress={centerOnDriver}>
-            <Ionicons name="locate" size={20} color={COLORS.primary} />
+          <TouchableOpacity
+            style={styles.mapButton}
+            onPress={centerOnDriver}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="locate" size={18} color={colors.primary} />
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Panel de información */}
-      <View style={styles.infoPanel}>
-        {/* Estado del pedido */}
-        <View style={styles.statusContainer}>
-          <View style={styles.progressBar}>
-            <View
-              style={[styles.progressFill, { width: `${orderStatus.progress * 100}%` }]}
-            />
-          </View>
-          <View style={styles.statusInfo}>
+      {/* ============ Info Panel ============ */}
+      <SafeAreaView edges={['bottom']} style={styles.infoPanel}>
+        {/* Status header */}
+        <View style={styles.statusHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.statusEyebrow}>ESTADO ACTUAL</Text>
             <Text style={styles.statusText}>{orderStatus.statusText}</Text>
+          </View>
+          <View style={styles.etaBlock}>
+            <Text style={styles.etaLabel}>ETA</Text>
             <Text style={styles.etaText}>{eta}</Text>
           </View>
         </View>
 
-        {/* Información del repartidor */}
+        {/* Progress */}
+        <View style={styles.progressBar}>
+          <View
+            style={[styles.progressFill, { width: `${orderStatus.progress * 100}%` }]}
+          />
+        </View>
+        <View style={styles.progressLabels}>
+          <Text style={styles.progressLabel}>Pedido</Text>
+          <Text style={styles.progressLabel}>Preparando</Text>
+          <Text style={styles.progressLabel}>En camino</Text>
+          <Text style={styles.progressLabel}>Entregado</Text>
+        </View>
+
+        {/* Driver */}
         {orderStatus.progress >= 0.55 && (
           <View style={styles.driverContainer}>
             <View style={styles.driverInfo}>
@@ -358,235 +439,339 @@ export default function OrderTrackingScreen({ navigation, route }: OrderTracking
                 {driver.photo ? (
                   <Image source={{ uri: driver.photo }} style={styles.driverPhoto} />
                 ) : (
-                  <Ionicons name="person" size={30} color={COLORS.gray} />
+                  <Ionicons name="person" size={24} color={colors.textMuted} />
                 )}
               </View>
               <View style={styles.driverDetails}>
                 <Text style={styles.driverName}>{driver.name}</Text>
-                <View style={styles.driverRating}>
-                  <Ionicons name="star" size={14} color={COLORS.warning} />
+                <View style={styles.driverMeta}>
+                  <Ionicons name="star" size={11} color={colors.primary} />
                   <Text style={styles.driverRatingText}>{driver.rating}</Text>
+                  <View style={styles.dot} />
+                  <Text style={styles.driverVehicle}>
+                    {driver.vehicle} · {driver.plate}
+                  </Text>
                 </View>
-                <Text style={styles.driverVehicle}>
-                  {driver.vehicle} • {driver.plate}
-                </Text>
               </View>
             </View>
 
             <View style={styles.driverActions}>
-              <TouchableOpacity style={styles.actionButton} onPress={callDriver}>
-                <Ionicons name="call" size={24} color={COLORS.success} />
+              <TouchableOpacity
+                style={[styles.actionIconBtn, styles.actionCall]}
+                onPress={callDriver}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="call" size={18} color={colors.success} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton} onPress={messageDriver}>
-                <Ionicons name="chatbubble" size={24} color={COLORS.primary} />
+              <TouchableOpacity
+                style={[styles.actionIconBtn, styles.actionChat]}
+                onPress={messageDriver}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="chatbubble" size={18} color={colors.primary} />
               </TouchableOpacity>
             </View>
           </View>
         )}
 
-        {/* Botón de ayuda */}
+        {/* Chat con restaurante */}
         <TouchableOpacity
-          style={styles.helpButton}
-          onPress={() => navigation.navigate('OrderHelp', { orderId })}
+          style={styles.helpRow}
+          onPress={messageRestaurant}
+          activeOpacity={0.85}
         >
-          <Ionicons name="help-circle-outline" size={20} color={COLORS.textLight} />
-          <Text style={styles.helpButtonText}>¿Necesitas ayuda con tu pedido?</Text>
+          <Ionicons name="restaurant-outline" size={16} color={colors.primary} />
+          <Text style={styles.helpText}>Mensaje al restaurante</Text>
+          <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
         </TouchableOpacity>
-      </View>
+
+        {/* Help */}
+        <TouchableOpacity
+          style={styles.helpRow}
+          onPress={() => navigation.navigate('OrderHelp', { orderId })}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="help-circle-outline" size={16} color={colors.textMuted} />
+          <Text style={styles.helpText}>¿Necesitas ayuda con tu pedido?</Text>
+          <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+        </TouchableOpacity>
+      </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
+  container: { flex: 1, backgroundColor: colors.bg },
+
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: colors.bg,
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: COLORS.textLight,
+    marginTop: s.md,
+    color: colors.textMuted,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
   },
-  map: {
-    flex: 1,
+
+  map: { flex: 1 },
+
+  // ============ TOP BAR ============
+  topBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: s.md,
+    paddingTop: s.xs,
   },
+  topIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    borderWidth: 1,
+    borderColor: colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  topCenter: { flex: 1, alignItems: 'center' },
+  topEyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+  },
+  topTitle: {
+    color: colors.text,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
+    marginTop: 2,
+  },
+
+  // ============ MAP CONTROLS ============
   mapButtons: {
     position: 'absolute',
-    top: 60,
-    right: 16,
-    gap: 8,
+    top: 110,
+    right: s.md,
+    gap: s.xs,
   },
   mapButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.white,
+    width: 42,
+    height: 42,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(10,10,10,0.85)',
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
+
+  // ============ MARKERS ============
   restaurantMarker: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.secondary,
+    width: 38,
+    height: 38,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bgRaised,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
-    borderColor: COLORS.white,
+    borderWidth: 2,
+    borderColor: colors.text,
   },
   deliveryMarker: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.success,
+    width: 38,
+    height: 38,
+    borderRadius: radius.pill,
+    backgroundColor: colors.success,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
-    borderColor: COLORS.white,
+    borderWidth: 2,
+    borderColor: colors.text,
   },
   driverMarker: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.primary,
+    width: 46,
+    height: 46,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
-    borderColor: COLORS.white,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    borderWidth: 2,
+    borderColor: colors.bg,
+    ...shadows.glow,
   },
+
+  // ============ INFO PANEL ============
   infoPanel: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    paddingBottom: 34,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 10,
+    backgroundColor: colors.bgRaised,
+    borderTopLeftRadius: radius['3xl'],
+    borderTopRightRadius: radius['3xl'],
+    paddingHorizontal: s.xl,
+    paddingTop: s.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  statusContainer: {
-    marginBottom: 16,
+  statusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
+  statusEyebrow: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+  },
+  statusText: {
+    color: colors.text,
+    fontSize: fontSize['2xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.4,
+    marginTop: 2,
+  },
+  etaBlock: { alignItems: 'flex-end' },
+  etaLabel: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+  },
+  etaText: {
+    color: colors.primary,
+    fontSize: fontSize['2xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.4,
+    marginTop: 2,
+  },
+
+  // ============ PROGRESS ============
   progressBar: {
-    height: 6,
-    backgroundColor: COLORS.lightGray,
+    height: 5,
     borderRadius: 3,
-    marginBottom: 12,
+    backgroundColor: colors.border,
+    marginTop: s.lg,
+    overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderRadius: 3,
   },
-  statusInfo: {
+  progressLabels: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    marginTop: s.xs,
   },
-  statusText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.text,
+  progressLabel: {
+    color: colors.textFaint,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
   },
-  etaText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.primary,
-  },
+
+  // ============ DRIVER ============
   driverContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
+    marginTop: s.lg,
+    paddingTop: s.lg,
     borderTopWidth: 1,
-    borderTopColor: COLORS.lightGray,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
-    marginBottom: 16,
+    borderTopColor: colors.border,
   },
   driverInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: s.sm,
     flex: 1,
   },
   driverAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: COLORS.lightGray,
+    width: 48,
+    height: 48,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
   driverPhoto: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 48,
+    height: 48,
+    borderRadius: radius.pill,
   },
-  driverDetails: {
-    flex: 1,
-  },
+  driverDetails: { flex: 1 },
   driverName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
   },
-  driverRating: {
+  driverMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 2,
+    gap: 4,
+    marginTop: 4,
   },
   driverRatingText: {
-    fontSize: 14,
-    color: COLORS.text,
-    marginLeft: 4,
+    color: colors.primary,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.heavy,
+  },
+  dot: {
+    width: 3,
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: colors.textFaint,
+    marginHorizontal: 4,
   },
   driverVehicle: {
-    fontSize: 13,
-    color: COLORS.textLight,
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
   },
   driverActions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: s.xs,
   },
-  actionButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.lightGray,
-    justifyContent: 'center',
+  actionIconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.pill,
+    borderWidth: 1,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  helpButton: {
+  actionCall: {
+    backgroundColor: 'rgba(31,174,111,0.12)',
+    borderColor: 'rgba(31,174,111,0.35)',
+  },
+  actionChat: {
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    borderColor: 'rgba(255,194,14,0.35)',
+  },
+
+  // ============ HELP ============
+  helpRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: s.xs,
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: s.md,
+    marginTop: s.sm,
   },
-  helpButtonText: {
-    fontSize: 14,
-    color: COLORS.textLight,
-    marginLeft: 8,
+  helpText: {
+    flex: 0,
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
   },
 });

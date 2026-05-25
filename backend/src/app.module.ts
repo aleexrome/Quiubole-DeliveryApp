@@ -19,6 +19,8 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { MapsModule } from './maps/maps.module';
 import { ChatModule } from './chat/chat.module';
+import { MessagesModule } from './messages/messages.module';
+import { DevoCouponsModule } from './devo-coupons/devo-coupons.module';
 import { AiModule } from './ai/ai.module';
 import { EmailModule } from './email/email.module';
 import { MailModule } from './mail/mail.module';
@@ -27,6 +29,7 @@ import { CouponsModule } from './coupons/coupons.module';
 import { FavoritesModule } from './favorites/favorites.module';
 import { PaymentMethodsModule } from './payment-methods/payment-methods.module';
 import { CoverageZonesModule } from './coverage-zones/coverage-zones.module';
+import { EditorsModule } from './editors/editors.module';
 
 // Entities
 import { User } from './users/user.entity';
@@ -42,6 +45,11 @@ import { Favorite } from './favorites/favorite.entity';
 import { PaymentMethod } from './payment-methods/payment-method.entity';
 import { CoverageZone } from './coverage-zones/coverage-zone.entity';
 import { VerificationCode } from './auth/verification-code.entity';
+import { EditorAuditLog } from './editors/editor-audit-log.entity';
+import { ChatChannel } from './chat/chat-channel.entity';
+import { ChatMessage } from './chat/chat-message.entity';
+import { Message } from './messages/message.entity';
+import { UserCoupon } from './devo-coupons/user-coupon.entity';
 
 @Module({
   imports: [
@@ -51,31 +59,73 @@ import { VerificationCode } from './auth/verification-code.entity';
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get<string>('DB_HOST') || 'localhost',
-        port: configService.get<number>('DB_PORT') || 5432,
-        username: configService.get<string>('DB_USERNAME') || 'postgres',
-        password: configService.get<string>('DB_PASSWORD') || 'postgres',
-        database: configService.get<string>('DB_DATABASE') || 'quiubole_db',
-        entities: [
-          User,
-          Restaurant,
-          Product,
-          Category,
-          Order,
-          OrderItem,
-          Review,
-          Address,
-          Coupon,
-          Favorite,
-          PaymentMethod,
-          CoverageZone,
-          VerificationCode,
-        ],
-        synchronize: configService.get<string>('NODE_ENV') !== 'production',
-        logging: configService.get<string>('NODE_ENV') === 'development',
-      }),
+      useFactory: (configService: ConfigService) => {
+        // ============================================
+        // CONFIG DE DB
+        //
+        // Soporta DOS modos:
+        //   1. DATABASE_URL (Railway / Render / Heroku / Supabase) —
+        //      string tipo `postgresql://user:pass@host:port/dbname`
+        //   2. Vars discretas DB_HOST/DB_PORT/etc. (dev local)
+        //
+        // Railway añade SSL obligatorio en su Postgres público — habilitamos
+        // ssl con rejectUnauthorized=false en producción para evitar errores
+        // de cert self-signed (config estándar para PaaS).
+        //
+        // `synchronize: true` se mantiene en producción SOLO si
+        // DB_SYNCHRONIZE=true está explícito. Útil en MVP para que
+        // Railway cree las tablas auto al primer deploy. Cuando el
+        // proyecto madure → migraciones formales.
+        // ============================================
+        const databaseUrl = configService.get<string>('DATABASE_URL');
+        const nodeEnv = configService.get<string>('NODE_ENV');
+        const isProd = nodeEnv === 'production';
+        const explicitSync =
+          configService.get<string>('DB_SYNCHRONIZE') === 'true';
+
+        const base: any = {
+          type: 'postgres',
+          entities: [
+            User,
+            Restaurant,
+            Product,
+            Category,
+            Order,
+            OrderItem,
+            Review,
+            Address,
+            Coupon,
+            Favorite,
+            PaymentMethod,
+            CoverageZone,
+            VerificationCode,
+            EditorAuditLog,
+            ChatChannel,
+            ChatMessage,
+            Message,
+            UserCoupon,
+          ],
+          synchronize: !isProd || explicitSync,
+          logging: nodeEnv === 'development',
+        };
+
+        if (databaseUrl) {
+          return {
+            ...base,
+            url: databaseUrl,
+            ssl: isProd ? { rejectUnauthorized: false } : false,
+          };
+        }
+
+        return {
+          ...base,
+          host: configService.get<string>('DB_HOST') || 'localhost',
+          port: configService.get<number>('DB_PORT') || 5432,
+          username: configService.get<string>('DB_USERNAME') || 'postgres',
+          password: configService.get<string>('DB_PASSWORD') || 'postgres',
+          database: configService.get<string>('DB_DATABASE') || 'quiubole_db',
+        };
+      },
       inject: [ConfigService],
     }),
     // ServeStaticModule.forRoot({
@@ -97,6 +147,8 @@ import { VerificationCode } from './auth/verification-code.entity';
     UploadsModule,
     MapsModule,
     ChatModule,
+    MessagesModule,
+    DevoCouponsModule,
     AiModule,
     EmailModule,
     MailModule,
@@ -105,6 +157,7 @@ import { VerificationCode } from './auth/verification-code.entity';
     FavoritesModule,
     PaymentMethodsModule,
     CoverageZonesModule,
+    EditorsModule,
   ],
 })
 export class AppModule {}

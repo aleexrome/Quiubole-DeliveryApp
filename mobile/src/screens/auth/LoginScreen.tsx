@@ -1,8 +1,17 @@
 // ==========================================
-// PANTALLA DE LOGIN
+// LOGIN V3 — Devolón
+//
+// Hero cinematográfico: imagen oficial 3D del rider (`imagenlogin.png`)
+// cubriendo el 55% superior con overlay negro + fade-out bottom hacia
+// el bg de la app. El formulario flota integrado al branding, sin card.
+//
+// Splash: SOLO el nativo (Android, vía colors.xml + drawable). El JS
+// splash overlay anterior (D + DEVOLÓN con fade) fue eliminado — era
+// el causante del "doble splash". Cold start ahora: native splash D
+// → directo al LoginScreen, sin pantalla intermedia.
 // ==========================================
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -13,324 +22,380 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
-  Animated,
-  Easing,
+  ScrollView,
+  StatusBar,
+  Image,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
+import {
+  colors,
+  s,
+  radius,
+  textStyles,
+  shadows,
+  fontWeight,
+  fontSize,
+} from '../../theme';
+
+const { height: SCREEN_H } = Dimensions.get('window');
+const HERO_HEIGHT = Math.round(SCREEN_H * 0.55);
 
 export default function LoginScreen() {
   const navigation = useNavigation<any>();
-  const { login, isLoading, error, clearError } = useAuthStore();
+  const { login, isLoading } = useAuthStore();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-
-  // Animacion de la moto
-  const motoPosition = useRef(new Animated.Value(0)).current;
-  const motoRotate = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    // Animacion ciclica de la moto
-    const animateMoto = () => {
-      Animated.loop(
-        Animated.sequence([
-          // Mover a la derecha
-          Animated.parallel([
-            Animated.timing(motoPosition, {
-              toValue: 1,
-              duration: 2000,
-              easing: Easing.inOut(Easing.ease),
-              useNativeDriver: true,
-            }),
-            Animated.timing(motoRotate, {
-              toValue: 0,
-              duration: 200,
-              useNativeDriver: true,
-            }),
-          ]),
-          // Pausa
-          Animated.delay(300),
-          // Mover a la izquierda
-          Animated.parallel([
-            Animated.timing(motoPosition, {
-              toValue: 0,
-              duration: 2000,
-              easing: Easing.inOut(Easing.ease),
-              useNativeDriver: true,
-            }),
-            Animated.timing(motoRotate, {
-              toValue: 1,
-              duration: 200,
-              useNativeDriver: true,
-            }),
-          ]),
-          // Pausa
-          Animated.delay(300),
-        ])
-      ).start();
-    };
-
-    animateMoto();
-  }, []);
-
-  const motoTranslateX = motoPosition.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-50, 50],
-  });
-
-  const motoScaleX = motoRotate.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, -1],
-  });
+  const [focus, setFocus] = useState<'email' | 'password' | null>(null);
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Por favor ingresa email y password');
+      Alert.alert('Faltan datos', 'Ingresa tu correo y contraseña.');
       return;
     }
-
     try {
       await login(email, password);
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Error al iniciar sesion');
+      Alert.alert(
+        'No se pudo iniciar sesión',
+        e?.message || 'Revisa tus credenciales e intenta de nuevo.',
+      );
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.root}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.bg} translucent={false} />
+
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
       >
-        {/* Logo con moto animada */}
-        <View style={styles.logoContainer}>
-          <Animated.Text
-            style={[
-              styles.motoEmoji,
-              {
-                transform: [
-                  { translateX: motoTranslateX },
-                  { scaleX: motoScaleX },
-                ],
-              },
-            ]}
-          >
-            🏍️
-          </Animated.Text>
-          <Text style={styles.logo}>Quiubole!</Text>
-          <Text style={styles.subtitle}>Tu delivery favorito</Text>
-        </View>
-
-        {/* Form */}
-        <View style={styles.form}>
-          <Text style={styles.title}>Iniciar Sesion</Text>
-
-          {/* Email */}
-          <View style={styles.inputContainer}>
-            <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Correo electronico"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          {/* ============ HERO CINEMATOGRÁFICO ============ */}
+          <View style={styles.hero}>
+            <Image
+              source={require('../../../assets/brand/imagenlogin.png')}
+              style={styles.heroImage}
+              resizeMode="cover"
+            />
+            {/* Overlay MUY ligero — solo unifica el negro de la imagen
+                con el bg de la app. Deja respirar el glow amarillo. */}
+            <View style={styles.heroOverlay} />
+            {/* Fade vertical inferior: corto y limpio, transparente → bg.
+                Sin parada intermedia oscura para no apagar la moto. */}
+            <LinearGradient
+              colors={['transparent', colors.bg]}
+              locations={[0, 1]}
+              style={styles.heroFade}
             />
           </View>
 
-          {/* Password */}
-          <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-            />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-              <Ionicons
-                name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                size={20}
-                color="#666"
-              />
-            </TouchableOpacity>
+          {/* ============ CONTENIDO INFERIOR ============ */}
+          <View style={styles.below}>
+            {/* Headline publicitario — centrado, editorial */}
+            <View style={styles.headlineBlock}>
+              <Text style={styles.headline}>Todo lo que necesitas,</Text>
+              <Text style={[styles.headline, styles.headlineAccent]}>
+                ya va en camino.
+              </Text>
+            </View>
+
+            <View style={styles.headlineDivider} />
+
+            {/* Form: underline minimal */}
+            <View style={styles.form}>
+              <View style={[styles.field, focus === 'email' && styles.fieldFocus]}>
+                <Ionicons
+                  name="mail-outline"
+                  size={18}
+                  color={focus === 'email' ? colors.primary : colors.textFaint}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Correo electrónico"
+                  placeholderTextColor={colors.textFaint}
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  selectionColor={colors.primary}
+                  onFocus={() => setFocus('email')}
+                  onBlur={() => setFocus(null)}
+                />
+              </View>
+
+              <View style={[styles.field, focus === 'password' && styles.fieldFocus]}>
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={18}
+                  color={focus === 'password' ? colors.primary : colors.textFaint}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Contraseña"
+                  placeholderTextColor={colors.textFaint}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  selectionColor={colors.primary}
+                  onFocus={() => setFocus('password')}
+                  onBlur={() => setFocus(null)}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword((p) => !p)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={18}
+                    color={colors.textMuted}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={styles.forgot}
+                onPress={() => navigation.navigate('ForgotPassword')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
+              </TouchableOpacity>
+
+              {/* CTA primario */}
+              <TouchableOpacity
+                activeOpacity={0.88}
+                onPress={handleLogin}
+                disabled={isLoading}
+                style={[styles.cta, isLoading && styles.ctaDisabled]}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color={colors.onPrimary} />
+                ) : (
+                  <Text style={styles.ctaText}>INICIAR SESIÓN</Text>
+                )}
+              </TouchableOpacity>
+
+              {/* Social — buttons grandes, full-width, balance simétrico */}
+              <View style={styles.socialRow}>
+                <TouchableOpacity style={styles.socialBtn} activeOpacity={0.8}>
+                  <Ionicons name="logo-google" size={22} color={colors.text} />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.socialBtn} activeOpacity={0.8}>
+                  <Ionicons name="logo-apple" size={24} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Crear cuenta — fila propia centrada */}
+              <View style={styles.registerRow}>
+                <Text style={styles.registerLead}>¿Aún no tienes cuenta?</Text>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('Register')}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.registerLink}>Crear cuenta</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Footer legal */}
+            <Text style={styles.footer}>
+              Al continuar aceptas los{' '}
+              <Text style={styles.footerLink} onPress={() => navigation.navigate('Terms')}>
+                Términos
+              </Text>{' '}
+              y la{' '}
+              <Text style={styles.footerLink} onPress={() => navigation.navigate('Privacy')}>
+                Privacidad
+              </Text>
+              .
+            </Text>
           </View>
-
-          {/* Forgot Password */}
-          <TouchableOpacity
-            style={styles.forgotPassword}
-            onPress={() => navigation.navigate('ForgotPassword')}
-          >
-            <Text style={styles.forgotPasswordText}>¿Olvidaste tu password?</Text>
-          </TouchableOpacity>
-
-          {/* Login Button */}
-          <TouchableOpacity
-            style={[styles.button, isLoading && styles.buttonDisabled]}
-            onPress={handleLogin}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Iniciar Sesion</Text>
-            )}
-          </TouchableOpacity>
-
-          {/* Divider */}
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>o continua con</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Social Login */}
-          <View style={styles.socialButtons}>
-            <TouchableOpacity style={styles.socialButton}>
-              <Ionicons name="logo-google" size={24} color="#DB4437" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.socialButton}>
-              <Ionicons name="logo-facebook" size={24} color="#4267B2" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.socialButton}>
-              <Ionicons name="logo-apple" size={24} color="#000" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Register Link */}
-          <View style={styles.registerContainer}>
-            <Text style={styles.registerText}>¿No tienes cuenta? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.registerLink}>Registrate</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.bg,
   },
-  keyboardView: {
-    flex: 1,
+  scroll: {
+    flexGrow: 1,
   },
-  logoContainer: {
+
+  // ============ HERO ============
+  hero: {
+    width: '100%',
+    height: HERO_HEIGHT,
+    backgroundColor: colors.bg,
+    overflow: 'hidden',
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.08)', // mínimo — solo unifica negros
+  },
+  heroFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '30%',
+  },
+
+  // ============ Below hero ============
+  below: {
+    paddingHorizontal: s.xl,
+    paddingTop: s.xl,
+    paddingBottom: s['2xl'],
+  },
+
+  // ============ Headline (editorial centrado) ============
+  headlineBlock: {
     alignItems: 'center',
-    paddingTop: 40,
-    paddingBottom: 30,
+    marginBottom: s.lg,
+    paddingHorizontal: s.xs,
   },
-  motoEmoji: {
-    fontSize: 50,
-    marginBottom: 10,
-  },
-  logo: {
-    fontSize: 42,
-    fontWeight: 'bold',
-    color: '#FF6B35',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginTop: 8,
-  },
-  form: {
-    flex: 1,
-    paddingHorizontal: 24,
-  },
-  title: {
+  headline: {
+    color: colors.text,
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#0F172A',
-    marginBottom: 24,
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.6,
+    lineHeight: 36,
+    textAlign: 'center',
   },
-  inputContainer: {
+  headlineAccent: {
+    color: colors.primary,
+  },
+  // Acento sutil bajo el headline — marca el cambio de sección sin línea dura
+  headlineDivider: {
+    width: 40,
+    height: 2,
+    backgroundColor: colors.primary,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: s['2xl'],
+    opacity: 0.9,
+  },
+
+  // ============ Form ============
+  form: {},
+  field: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    marginBottom: 16,
+    gap: s.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingVertical: s.md + 2, // más respiro (18px)
   },
-  inputIcon: {
-    marginRight: 12,
+  fieldFocus: {
+    borderBottomColor: colors.primary,
   },
   input: {
     flex: 1,
-    paddingVertical: 16,
-    fontSize: 16,
+    fontSize: 17,
+    fontWeight: fontWeight.medium,
+    color: colors.text,
+    paddingVertical: 0,
   },
-  forgotPassword: {
+  forgot: {
     alignSelf: 'flex-end',
-    marginBottom: 24,
+    marginTop: s.sm,
+    marginBottom: s.lg,
   },
-  forgotPasswordText: {
-    color: '#FF6B35',
-    fontSize: 14,
+  forgotText: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
   },
-  button: {
-    backgroundColor: '#FF6B35',
-    paddingVertical: 16,
-    borderRadius: 12,
+
+  // ============ CTA ============
+  cta: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.lg,
+    height: 56,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: s.xs,
+    ...shadows.glow,
   },
-  buttonDisabled: {
+  ctaDisabled: {
     opacity: 0.7,
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
+  ctaText: {
+    ...textStyles.cta,
+    color: colors.onPrimary,
+    letterSpacing: 2.4,
+    fontSize: 14,
   },
-  divider: {
+
+  // ============ Social (grandes, balance simétrico) ============
+  socialRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 24,
+    gap: s.sm,
+    marginTop: s.xl,
   },
-  dividerLine: {
+  socialBtn: {
     flex: 1,
-    height: 1,
-    backgroundColor: '#E5E5E5',
-  },
-  dividerText: {
-    color: '#666',
-    paddingHorizontal: 16,
-    fontSize: 14,
-  },
-  socialButtons: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 20,
-  },
-  socialButton: {
-    width: 56,
     height: 56,
-    borderRadius: 28,
-    backgroundColor: '#F5F5F5',
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  registerContainer: {
+
+  // ============ Crear cuenta (fila centrada, propia) ============
+  registerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 24,
+    alignItems: 'center',
+    gap: s.xs,
+    marginTop: s.xl,
   },
-  registerText: {
-    color: '#666',
+  registerLead: {
+    color: colors.textMuted,
     fontSize: 14,
+    fontWeight: fontWeight.medium,
   },
   registerLink: {
-    color: '#FF6B35',
+    color: colors.primary,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.3,
+  },
+
+  // ============ Footer legal ============
+  footer: {
+    color: colors.textFaint,
+    textAlign: 'center',
+    fontSize: 11,
+    marginTop: s.xl,
+    paddingHorizontal: s.lg,
+    lineHeight: 16,
+  },
+  footerLink: {
+    color: colors.textMuted,
+    fontWeight: fontWeight.semibold,
   },
 });

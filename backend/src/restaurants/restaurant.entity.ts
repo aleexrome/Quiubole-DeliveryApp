@@ -5,7 +5,9 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  ManyToMany,
   JoinColumn,
+  JoinTable,
 } from 'typeorm';
 import { User } from '../users/user.entity';
 
@@ -56,6 +58,23 @@ export class Restaurant {
   @Column({ default: 30 })
   estimatedDeliveryTime: number;
 
+  // ============================================
+  // ZONA + RADIO DE ENTREGA
+  //
+  // `zone` es la etiqueta del municipio (ej. "Tenancingo") — sirve para
+  // analytics y mercadeo. La filtración REAL del feed para el cliente se
+  // hace por distancia: el cliente solo ve el restaurante si está dentro
+  // del `deliveryRadiusKm` desde lat/lng del local. Esto resuelve casos
+  // de borde entre municipios sin trámite manual.
+  // ============================================
+  @Column({ nullable: true })
+  zone: string;
+
+  // Radio máximo de entrega en km. Default 5 (caminata o moto urbana
+  // razonable). El dueño puede ajustarlo en su panel de ajustes.
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 5 })
+  deliveryRadiusKm: number;
+
   @Column({ default: true })
   isActive: boolean;
 
@@ -83,6 +102,17 @@ export class Restaurant {
 
   @Column({ nullable: true })
   stripeAccountId: string;
+
+  // Editores (staff de Quiúbole) asignados por admin. Pueden editar
+  // productos, menú, precios e imágenes del restaurante.
+  // Tabla de unión: restaurant_editors (restaurant_id, editor_id)
+  @ManyToMany(() => User, (user) => user.editedRestaurants)
+  @JoinTable({
+    name: 'restaurant_editors',
+    joinColumn: { name: 'restaurant_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'editor_id', referencedColumnName: 'id' },
+  })
+  editors: User[];
 
   @CreateDateColumn()
   createdAt: Date;

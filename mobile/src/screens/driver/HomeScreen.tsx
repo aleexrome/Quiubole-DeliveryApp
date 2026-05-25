@@ -1,5 +1,15 @@
 // ==========================================
-// HOME DEL REPARTIDOR (ESTILO UBER)
+// DEVOLÓN — Driver Home (Uber-style fullscreen layout)
+//
+// El mapa/radar ocupa TODA la pantalla. Encima se montan overlays:
+//   • TOP: header transparente con greeting + status + avatar
+//   • CENTER-RIGHT: FAB grande GO/STOP — el toggle principal
+//   • BOTTOM: card glass con stats + lista de pedidos disponibles
+//
+// Sin Google Maps API: el componente RadarHero pinta un radar estilizado
+// dark con anillos pulsantes amarillos cuando el driver está online.
+// Cuando se integre `react-native-maps`, reemplazar `<RadarHero ... />`
+// por `<MapView>` manteniendo el resto del layout idéntico.
 // ==========================================
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -9,8 +19,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
-  Dimensions,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,20 +29,32 @@ import * as Location from 'expo-location';
 import { driverApi, ordersApi } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 import { DriverStatus, Order } from '../../types';
-
-const { width } = Dimensions.get('window');
+import { Card } from '../../components/ui';
+import RadarHero from './RadarHero';
+import {
+  colors,
+  s,
+  radius,
+  shadows,
+  fontSize,
+  fontWeight,
+  tracking,
+} from '../../theme';
 
 export default function DriverHomeScreen() {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
   const [status, setStatus] = useState<DriverStatus>('offline');
-  const [currentLocation, setCurrentLocation] = useState<Location.LocationObject | null>(null);
+  const [currentLocation, setCurrentLocation] =
+    useState<Location.LocationObject | null>(null);
   const [availableOrders, setAvailableOrders] = useState<Order[]>([]);
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
-  const [earnings, setEarnings] = useState({ today: 0, pending: 0 });
-
-  const slideAnim = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const [earnings, setEarnings] = useState<any>({
+    today: 0,
+    pending: 0,
+    deliveries: 0,
+  });
+  const fabScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     checkActiveDelivery();
@@ -41,40 +63,32 @@ export default function DriverHomeScreen() {
 
   useEffect(() => {
     let locationSubscription: Location.LocationSubscription | null = null;
-    let ordersInterval: NodeJS.Timeout | null = null;
+    let ordersInterval: ReturnType<typeof setInterval> | null = null;
 
     if (status === 'online') {
-      // Start location tracking
-      startLocationTracking().then(sub => {
+      startLocationTracking().then((sub) => {
         locationSubscription = sub;
       });
-
-      // Poll for available orders
       ordersInterval = setInterval(loadAvailableOrders, 10000);
       loadAvailableOrders();
-
-      // Start pulse animation
-      startPulseAnimation();
     }
-
     return () => {
-      if (locationSubscription) {
-        locationSubscription.remove();
-      }
-      if (ordersInterval) {
-        clearInterval(ordersInterval);
-      }
+      if (locationSubscription) locationSubscription.remove();
+      if (ordersInterval) clearInterval(ordersInterval);
     };
   }, [status]);
 
   const startLocationTracking = async () => {
-    const { status: permStatus } = await Location.requestForegroundPermissionsAsync();
+    const { status: permStatus } =
+      await Location.requestForegroundPermissionsAsync();
     if (permStatus !== 'granted') {
-      Alert.alert('Permiso denegado', 'Necesitamos tu ubicacion para mostrarte pedidos cercanos');
+      Alert.alert(
+        'Permiso denegado',
+        'Necesitamos tu ubicación para asignarte pedidos cercanos.',
+      );
       return null;
     }
-
-    return await Location.watchPositionAsync(
+    return Location.watchPositionAsync(
       {
         accuracy: Location.Accuracy.High,
         timeInterval: 5000,
@@ -82,27 +96,13 @@ export default function DriverHomeScreen() {
       },
       (location) => {
         setCurrentLocation(location);
-        // Update location on server
-        driverApi.updateLocation(location.coords.latitude, location.coords.longitude);
-      }
+        driverApi
+          .updateLocation(location.coords.latitude, location.coords.longitude)
+          .catch(() => {
+            /* silent */
+          });
+      },
     );
-  };
-
-  const startPulseAnimation = () => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.2,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
   };
 
   const checkActiveDelivery = async () => {
@@ -112,20 +112,18 @@ export default function DriverHomeScreen() {
         setActiveOrder(order);
         setStatus('busy');
       }
-    } catch (error) {
-      // No active delivery
+    } catch {
+      /* sin entrega activa */
     }
   };
 
   const loadAvailableOrders = async () => {
-    if (!currentLocation) return;
     try {
-      const orders = await ordersApi.getAvailableOrders(
-        currentLocation.coords.latitude,
-        currentLocation.coords.longitude,
-        5 // 5km radius
-      );
-      setAvailableOrders(orders);
+      // Si no hay location, intentamos sin coords (backend filtra por estado).
+      const lat = currentLocation?.coords?.latitude;
+      const lng = currentLocation?.coords?.longitude;
+      const orders = await ordersApi.getAvailableOrders(lat, lng, 5);
+      setAvailableOrders(orders || []);
     } catch (error) {
       console.error('Error loading orders:', error);
     }
@@ -133,27 +131,36 @@ export default function DriverHomeScreen() {
 
   const loadEarnings = async () => {
     try {
-      const data = await driverApi.getEarnings('day');
-      setEarnings(data);
+      const data: any = await driverApi.getEarnings('day');
+      // El backend devuelve {totalOrders, totalEarnings, orders[]}. Mapeamos.
+      setEarnings({
+        today: data?.totalEarnings ?? data?.today ?? 0,
+        deliveries: data?.totalOrders ?? data?.deliveries ?? 0,
+        pending: data?.pending ?? 0,
+      });
     } catch (error) {
       console.error('Error loading earnings:', error);
     }
   };
 
   const toggleStatus = async () => {
-    const newStatus = status === 'offline' ? 'online' : 'offline';
+    // Optimistic update con pulso del FAB para feedback inmediato.
+    Animated.sequence([
+      Animated.timing(fabScale, { toValue: 0.92, duration: 80, useNativeDriver: true }),
+      Animated.timing(fabScale, { toValue: 1, duration: 120, useNativeDriver: true }),
+    ]).start();
 
-    // Animate toggle
-    Animated.spring(slideAnim, {
-      toValue: newStatus === 'online' ? 1 : 0,
-      useNativeDriver: true,
-    }).start();
-
+    const newStatus: DriverStatus = status === 'offline' ? 'online' : 'offline';
+    setStatus(newStatus);
     try {
       await driverApi.updateStatus(newStatus);
-      setStatus(newStatus);
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo cambiar el estado');
+    } catch (error: any) {
+      setStatus(status); // revert
+      Alert.alert(
+        'No se pudo actualizar',
+        error?.response?.data?.message ||
+          'Verifica tu conexión e intenta de nuevo.',
+      );
     }
   };
 
@@ -163,366 +170,576 @@ export default function DriverHomeScreen() {
       setActiveOrder(order);
       setStatus('busy');
       navigation.navigate('ActiveDelivery', { orderId: order.id });
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo aceptar el pedido. Puede que otro repartidor ya lo tomó.');
+    } catch {
+      Alert.alert(
+        'No se pudo aceptar',
+        'Otro repartidor pudo haberlo tomado. Refresca la lista.',
+      );
       loadAvailableOrders();
     }
   };
 
-  const formatCurrency = (amount: number) => `$${amount.toFixed(2)}`;
-  const formatDistance = (km: number) => km < 1 ? `${(km * 1000).toFixed(0)}m` : `${km.toFixed(1)}km`;
+  // Bulletproof: maneja string/number/undefined/null/NaN/objetos/arrays.
+  // Number(obj) y Number(arr) devuelven NaN → isFinite false → fallback 0.
+  const formatCurrency = (amount: any) => {
+    const n = Number(amount);
+    return `$${(isFinite(n) ? n : 0).toFixed(2)}`;
+  };
+
+  const isOnline = status === 'online';
+  const isBusy = status === 'busy';
+  const statusLabel = isBusy
+    ? 'En entrega'
+    : isOnline
+      ? 'Buscando pedidos'
+      : 'Desconectado';
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>Hola, {user?.name?.split(' ')[0]}</Text>
-          <Text style={styles.statusText}>
-            {status === 'offline' ? 'Desconectado' : status === 'online' ? 'Buscando pedidos...' : 'En entrega'}
-          </Text>
-        </View>
-        <TouchableOpacity
-          style={styles.earningsBtn}
-          onPress={() => navigation.navigate('Earnings')}
-        >
-          <Ionicons name="wallet-outline" size={20} color="#22C55E" />
-          <Text style={styles.earningsText}>{formatCurrency(earnings.today)}</Text>
-        </TouchableOpacity>
+    <View style={styles.root}>
+      {/* ============ MAPA FULLSCREEN (capa de fondo absoluta) ============
+          absoluteFill garantiza que ocupe toda la pantalla detrás de los
+          overlays, sin depender del flexbox del root. */}
+      <View style={styles.mapBackground} pointerEvents="none">
+        <RadarHero
+          fullscreen
+          online={isOnline}
+          ordersNearby={availableOrders.length}
+        />
       </View>
 
-      {/* Map placeholder */}
-      <View style={styles.mapContainer}>
-        <View style={styles.mapPlaceholder}>
-          <Ionicons name="map" size={64} color="#E5E5E5" />
-          <Text style={styles.mapPlaceholderText}>
-            {currentLocation ? 'Mapa de tu ubicacion' : 'Obteniendo ubicacion...'}
-          </Text>
-        </View>
+      {/* ============ TOP HEADER OVERLAY ============ */}
+      <SafeAreaView style={styles.topOverlay} edges={['top']} pointerEvents="box-none">
+        <View style={styles.headerRow}>
+          <View style={styles.headerLeft}>
+            <View style={styles.statusChip}>
+              <View
+                style={[
+                  styles.statusDot,
+                  isOnline && styles.statusDotOnline,
+                  isBusy && styles.statusDotBusy,
+                ]}
+              />
+              <Text style={styles.statusText}>{statusLabel}</Text>
+            </View>
+            <Text style={styles.greeting} numberOfLines={1}>
+              Hola, {user?.name?.split(' ')[0] || 'rider'}
+            </Text>
+          </View>
 
-        {/* Status indicator */}
-        {status === 'online' && (
-          <Animated.View
-            style={[
-              styles.statusIndicator,
-              { transform: [{ scale: pulseAnim }] }
-            ]}
+          <TouchableOpacity
+            style={styles.avatarBtn}
+            onPress={() => navigation.navigate('Profile')}
+            activeOpacity={0.85}
           >
-            <View style={styles.statusDot} />
-          </Animated.View>
-        )}
-      </View>
+            <Ionicons name="person" size={20} color={colors.text} />
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
 
-      {/* Active Order Banner */}
+      {/* ============ ACTIVE DELIVERY BANNER (si hay entrega activa) ============ */}
       {activeOrder && (
         <TouchableOpacity
-          style={styles.activeOrderBanner}
-          onPress={() => navigation.navigate('ActiveDelivery', { orderId: activeOrder.id })}
+          activeOpacity={0.9}
+          style={styles.activeBanner}
+          onPress={() =>
+            navigation.navigate('ActiveDelivery', { orderId: activeOrder.id })
+          }
         >
-          <View style={styles.activeOrderInfo}>
-            <Ionicons name="bicycle" size={24} color="#fff" />
-            <View style={styles.activeOrderText}>
-              <Text style={styles.activeOrderTitle}>Entrega en progreso</Text>
-              <Text style={styles.activeOrderSubtitle}>#{activeOrder.orderNumber}</Text>
-            </View>
+          <View style={styles.activeIcon}>
+            <Ionicons name="bicycle" size={22} color={colors.onPrimary} />
           </View>
-          <Ionicons name="chevron-forward" size={24} color="#fff" />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.activeEyebrow}>ENTREGA ACTIVA</Text>
+            <Text style={styles.activeTitle}>
+              #{activeOrder.orderNumber} · Toca para continuar
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={22} color={colors.text} />
         </TouchableOpacity>
       )}
 
-      {/* Available Orders */}
-      {status === 'online' && availableOrders.length > 0 && (
-        <View style={styles.ordersContainer}>
-          <Text style={styles.ordersTitle}>Pedidos Disponibles</Text>
-          {availableOrders.map((order) => (
-            <View key={order.id} style={styles.orderCard}>
-              <View style={styles.orderHeader}>
-                <View style={styles.restaurantInfo}>
-                  <Ionicons name="restaurant" size={20} color="#FF6B35" />
-                  <Text style={styles.restaurantName}>{order.restaurant.name}</Text>
-                </View>
-                <Text style={styles.orderEarning}>{formatCurrency(order.deliveryFee + (order.tip || 0))}</Text>
-              </View>
-              <View style={styles.orderDetails}>
-                <View style={styles.orderDetail}>
-                  <Ionicons name="location" size={16} color="#666" />
-                  <Text style={styles.orderDetailText}>
-                    {/* formatDistance(order.distance) */} 2.5km
-                  </Text>
-                </View>
-                <View style={styles.orderDetail}>
-                  <Ionicons name="time" size={16} color="#666" />
-                  <Text style={styles.orderDetailText}>~15 min</Text>
-                </View>
-                <View style={styles.orderDetail}>
-                  <Ionicons name="bag" size={16} color="#666" />
-                  <Text style={styles.orderDetailText}>{order.items.length} productos</Text>
-                </View>
-              </View>
+      {/* ============ FAB GO/STOP (toggle principal) ============ */}
+      {!isBusy && (
+        <Animated.View
+          style={[styles.fabWrap, { transform: [{ scale: fabScale }] }]}
+        >
+          <TouchableOpacity
+            activeOpacity={0.88}
+            onPress={toggleStatus}
+            style={[styles.fab, isOnline ? styles.fabOnline : styles.fabOffline]}
+          >
+            <Ionicons
+              name={isOnline ? 'pause' : 'power'}
+              size={28}
+              color={isOnline ? colors.onPrimary : colors.text}
+            />
+            <Text
+              style={[
+                styles.fabLabel,
+                isOnline && styles.fabLabelOnline,
+              ]}
+            >
+              {isOnline ? 'PAUSAR' : 'CONECTAR'}
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
+      {/* ============ BOTTOM SHEET con stats + pedidos ============ */}
+      <View style={styles.bottomSheet} pointerEvents="box-none">
+        <View style={styles.sheetHandle} />
+
+        {/* Stats compactos */}
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{formatCurrency(earnings.today)}</Text>
+            <Text style={styles.statLabel}>HOY</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{earnings.deliveries}</Text>
+            <Text style={styles.statLabel}>ENTREGAS</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>
+              {formatCurrency(earnings.pending)}
+            </Text>
+            <Text style={styles.statLabel}>POR PAGAR</Text>
+          </View>
+        </View>
+
+        {/* Lista de pedidos disponibles */}
+        {isOnline && availableOrders.length > 0 && (
+          <View style={styles.ordersBlock}>
+            <View style={styles.ordersHeader}>
+              <Text style={styles.ordersEyebrow}>CERCA DE TI</Text>
               <TouchableOpacity
-                style={styles.acceptBtn}
-                onPress={() => handleAcceptOrder(order)}
+                onPress={() => navigation.navigate('AvailableOrders')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={styles.acceptBtnText}>Aceptar Pedido</Text>
+                <Text style={styles.ordersAction}>Ver todos →</Text>
               </TouchableOpacity>
             </View>
-          ))}
-        </View>
-      )}
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              style={{ maxHeight: 160 }}
+            >
+              {availableOrders.slice(0, 2).map((order: any) => {
+                // Estado de cocina visible para el rider: confirmado /
+                // preparando / listo. Permite hacer claim early antes de
+                // que la comida esté lista y empezar a acercarse.
+                const status = order?.status as string;
+                const kitchen =
+                  status === 'ready_for_pickup'
+                    ? { label: 'LISTO', tint: colors.success, icon: 'checkmark-circle' as const }
+                    : status === 'preparing'
+                      ? { label: 'EN COCINA', tint: colors.primary, icon: 'flame' as const }
+                      : { label: 'CONFIRMADO', tint: colors.info, icon: 'time' as const };
 
-      {/* Empty state */}
-      {status === 'online' && availableOrders.length === 0 && (
-        <View style={styles.emptyState}>
-          <Ionicons name="search" size={48} color="#E5E5E5" />
-          <Text style={styles.emptyText}>Buscando pedidos cercanos...</Text>
-          <Text style={styles.emptySubtext}>Te notificaremos cuando haya uno disponible</Text>
-        </View>
-      )}
-
-      {/* Bottom Toggle */}
-      <View style={styles.bottomContainer}>
-        {status !== 'busy' && (
-          <TouchableOpacity
-            style={[styles.toggleButton, status === 'online' && styles.toggleButtonActive]}
-            onPress={toggleStatus}
-          >
-            <Animated.View
-              style={[
-                styles.toggleSlider,
-                {
-                  transform: [{
-                    translateX: slideAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [4, width - 88],
-                    })
-                  }]
+                // Tiempo desde que el restaurante confirmó/empezó a preparar
+                const tsRaw = order?.preparingAt || order?.confirmedAt;
+                let ageMin = 0;
+                if (tsRaw) {
+                  const t = new Date(tsRaw).getTime();
+                  if (!isNaN(t)) ageMin = Math.max(0, Math.round((Date.now() - t) / 60000));
                 }
-              ]}
-            />
-            <Text style={[styles.toggleText, status === 'online' && styles.toggleTextActive]}>
-              {status === 'offline' ? 'Desliza para Conectarte' : 'Conectado'}
-            </Text>
-            <Ionicons
-              name={status === 'offline' ? 'power' : 'checkmark-circle'}
-              size={24}
-              color={status === 'offline' ? '#666' : '#fff'}
-              style={styles.toggleIcon}
-            />
-          </TouchableOpacity>
+                const ageLabel =
+                  status === 'ready_for_pickup'
+                    ? 'Recoge ya'
+                    : ageMin === 0
+                      ? 'Hace instantes'
+                      : `Hace ${ageMin} min`;
+
+                return (
+                  <Card
+                    key={order.id}
+                    variant="glass"
+                    padding={s.md}
+                    borderRadius={radius.lg}
+                    style={styles.orderCard}
+                  >
+                    <View style={styles.orderTop}>
+                      <View style={styles.orderIcon}>
+                        <Ionicons name="restaurant" size={14} color={colors.primary} />
+                      </View>
+                      <Text style={styles.orderRestaurant} numberOfLines={1}>
+                        {order.restaurant?.name || 'Restaurante'}
+                      </Text>
+                      <Text style={styles.orderEarn}>
+                        {formatCurrency(
+                          (Number(order.deliveryFee) || 0) +
+                            (Number(order.tip) || 0),
+                        )}
+                      </Text>
+                    </View>
+
+                    {/* Chip de status de cocina + tiempo */}
+                    <View style={styles.orderStatusRow}>
+                      <View
+                        style={[
+                          styles.kitchenChip,
+                          { borderColor: `${kitchen.tint}55`, backgroundColor: `${kitchen.tint}1A` },
+                        ]}
+                      >
+                        <Ionicons name={kitchen.icon} size={11} color={kitchen.tint} />
+                        <Text style={[styles.kitchenChipText, { color: kitchen.tint }]}>
+                          {kitchen.label}
+                        </Text>
+                      </View>
+                      <Text style={styles.orderMetaText}>{ageLabel}</Text>
+                    </View>
+
+                    <View style={styles.orderMeta}>
+                      <Ionicons name="bag-outline" size={11} color={colors.textMuted} />
+                      <Text style={styles.orderMetaText}>
+                        {order.items?.length ?? 0} items
+                      </Text>
+                      <View style={{ flex: 1 }} />
+                      <TouchableOpacity
+                        style={styles.miniAcceptBtn}
+                        activeOpacity={0.85}
+                        onPress={() => handleAcceptOrder(order)}
+                      >
+                        <Text style={styles.miniAcceptText}>
+                          {status === 'ready_for_pickup' ? 'RECOGER' : 'TOMAR'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </Card>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Estado vacío: online sin pedidos / offline */}
+        {isOnline && availableOrders.length === 0 && (
+          <Text style={styles.emptyHint}>
+            Buscando pedidos cerca…
+          </Text>
+        )}
+        {!isOnline && !isBusy && (
+          <Text style={styles.emptyHint}>
+            Toca CONECTAR para empezar a recibir pedidos.
+          </Text>
         )}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
+const FAB_SIZE = 84;
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
+  root: { flex: 1, backgroundColor: colors.bg },
+  // El mapa va como background absoluto cubriendo TODA la pantalla.
+  // pointerEvents="none" deja que los taps pasen a los overlays encima.
+  mapBackground: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
-  },
-  greeting: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#0F172A',
-  },
-  statusText: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  earningsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0FDF4',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  earningsText: {
-    color: '#22C55E',
-    fontWeight: 'bold',
-    marginLeft: 6,
-  },
-  mapContainer: {
-    flex: 1,
-    margin: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: '#fff',
-  },
-  mapPlaceholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mapPlaceholderText: {
-    color: '#666',
-    marginTop: 8,
-  },
-  statusIndicator: {
+
+  // ============ TOP HEADER (overlay) ============
+  topOverlay: {
     position: 'absolute',
-    top: 16,
-    right: 16,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(34, 197, 94, 0.2)',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: s.md,
+    paddingTop: s.sm,
+  },
+  headerLeft: { flex: 1, gap: s.xs },
+  statusChip: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: s.sm,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   statusDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#22C55E',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.textMuted,
   },
-  activeOrderBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FF6B35',
-    marginHorizontal: 16,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
+  statusDotOnline: { backgroundColor: colors.success },
+  statusDotBusy: { backgroundColor: colors.primary },
+  statusText: {
+    color: colors.text,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
   },
-  activeOrderInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  greeting: {
+    color: colors.text,
+    fontSize: fontSize['2xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.5,
+    paddingHorizontal: s.xs,
+    // sombra de texto para que se lea sobre el mapa
+    textShadowColor: 'rgba(0,0,0,0.85)',
+    textShadowRadius: 8,
   },
-  activeOrderText: {
-    marginLeft: 12,
-  },
-  activeOrderTitle: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  activeOrderSubtitle: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 12,
-  },
-  ordersContainer: {
-    padding: 16,
-  },
-  ordersTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#0F172A',
-    marginBottom: 12,
-  },
-  orderCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  orderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  restaurantInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  restaurantName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0F172A',
-    marginLeft: 8,
-  },
-  orderEarning: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#22C55E',
-  },
-  orderDetails: {
-    flexDirection: 'row',
-    marginTop: 12,
-    gap: 16,
-  },
-  orderDetail: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  orderDetailText: {
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 4,
-  },
-  acceptBtn: {
-    backgroundColor: '#22C55E',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  acceptBtnText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  emptyState: {
-    alignItems: 'center',
-    padding: 32,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#666',
-    marginTop: 12,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#999',
-    marginTop: 4,
-  },
-  bottomContainer: {
-    padding: 16,
-  },
-  toggleButton: {
-    flexDirection: 'row',
+  avatarBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E5E5E5',
-    height: 56,
-    borderRadius: 28,
-    position: 'relative',
-    overflow: 'hidden',
   },
-  toggleButtonActive: {
-    backgroundColor: '#22C55E',
+
+  // ============ ACTIVE DELIVERY BANNER ============
+  activeBanner: {
+    position: 'absolute',
+    top: 110,
+    left: s.md,
+    right: s.md,
+    zIndex: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s.sm,
+    padding: s.md,
+    borderRadius: radius.xl,
+    backgroundColor: colors.primary,
+    ...shadows.glow,
   },
-  toggleSlider: {
+  activeIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(0,0,0,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeEyebrow: {
+    color: 'rgba(0,0,0,0.7)',
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+  },
+  activeTitle: {
+    color: colors.onPrimary,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
+    marginTop: 2,
+  },
+
+  // ============ FAB GO/STOP ============
+  // Se monta sobre el bottom sheet. Si el sheet tiene ~180px de alto,
+  // el FAB queda flotando ~40px arriba del borde del sheet.
+  fabWrap: {
+    position: 'absolute',
+    bottom: 210,
+    alignSelf: 'center',
+    zIndex: 11,
+  },
+  fab: {
+    width: FAB_SIZE,
+    height: FAB_SIZE,
+    borderRadius: FAB_SIZE / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  fabOffline: {
+    backgroundColor: colors.bgRaised,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  fabOnline: {
+    backgroundColor: colors.primary,
+    ...shadows.glow,
+  },
+  fabLabel: {
+    color: colors.text,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.black,
+    letterSpacing: 1.2,
+  },
+  fabLabelOnline: { color: colors.onPrimary },
+
+  // ============ BOTTOM SHEET ============
+  // Sheet más bajo (~190px) para que el mapa tenga más protagonismo.
+  // El user puede expandir manualmente si lista de pedidos crece — el
+  // scrollview interno absorbe el contenido extra hasta maxHeight.
+  bottomSheet: {
     position: 'absolute',
     left: 0,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.bgRaised,
+    borderTopLeftRadius: radius['3xl'],
+    borderTopRightRadius: radius['3xl'],
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: s.xl,
+    paddingTop: s.sm,
+    paddingBottom: s.lg,
+    minHeight: 190,
+    zIndex: 5,
+    ...shadows.lg,
   },
-  toggleText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+    marginBottom: s.md,
   },
-  toggleTextActive: {
-    color: '#fff',
+
+  // ============ STATS ============
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: s.sm,
   },
-  toggleIcon: {
-    position: 'absolute',
-    right: 16,
+  statItem: { flex: 1, alignItems: 'center' },
+  statValue: {
+    color: colors.primary,
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.4,
+  },
+  statLabel: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: colors.border,
+  },
+
+  // ============ ORDERS LIST ============
+  ordersBlock: {
+    marginTop: s.md,
+    paddingTop: s.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  ordersHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: s.sm,
+  },
+  ordersEyebrow: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+  },
+  ordersAction: {
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.3,
+  },
+  orderCard: { marginBottom: s.xs },
+  orderTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s.xs,
+  },
+  orderIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,194,14,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  orderRestaurant: {
+    flex: 1,
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
+  },
+  orderEarn: {
+    color: colors.primary,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.2,
+  },
+  orderStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  kitchenChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
+  kitchenChipText: {
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.6,
+  },
+  orderMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: s.xs,
+  },
+  orderMetaText: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.semibold,
+  },
+  orderMetaSep: {
+    color: colors.textFaint,
+    fontSize: fontSize.xxs,
+  },
+  miniAcceptBtn: {
+    paddingHorizontal: s.sm,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+  },
+  miniAcceptText: {
+    color: colors.onPrimary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.black,
+    letterSpacing: 1,
+  },
+
+  // ============ EMPTY HINT ============
+  emptyHint: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    textAlign: 'center',
+    marginTop: s.md,
+    paddingHorizontal: s.lg,
   },
 });

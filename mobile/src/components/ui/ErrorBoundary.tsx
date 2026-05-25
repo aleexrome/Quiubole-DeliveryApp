@@ -1,25 +1,15 @@
 // ==========================================
-// ERROR BOUNDARY - MANEJO DE ERRORES GLOBALES
+// DEVOLÓN — <ErrorBoundary>
+//
+// Captura errores no controlados en el árbol React y muestra un estado
+// premium en dark mode. En __DEV__ revela el mensaje exacto del error.
 // ==========================================
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-} from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-
-const COLORS = {
-  primary: '#FF6B35',
-  background: '#F8F9FA',
-  white: '#FFFFFF',
-  gray: '#6C757D',
-  text: '#212529',
-  danger: '#F44336',
-};
+import { colors, s, radius, fontSize, fontWeight } from '../../theme';
+import Button from './Button';
 
 interface Props {
   children: ReactNode;
@@ -42,8 +32,11 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log error to service (Sentry, Firebase Crashlytics, etc.)
-    console.error('ErrorBoundary caught error:', error, errorInfo);
+    console.error('========== ErrorBoundary ==========');
+    console.error('Message:', error.message);
+    console.error('Stack:', error.stack);
+    console.error('Component stack:', errorInfo.componentStack);
+    console.error('===================================');
   }
 
   handleRetry = () => {
@@ -58,23 +51,33 @@ export default class ErrorBoundary extends Component<Props, State> {
 
       return (
         <View style={styles.container}>
-          <View style={styles.iconContainer}>
-            <Ionicons name="bug-outline" size={80} color={COLORS.danger} />
+          <View style={styles.iconHalo}>
+            <Ionicons name="bug-outline" size={56} color={colors.danger} />
           </View>
-          <Text style={styles.title}>Algo salio mal</Text>
+          <Text style={styles.title}>Algo salió mal</Text>
           <Text style={styles.subtitle}>
-            Lo sentimos, ocurrio un error inesperado. Por favor intenta de nuevo.
+            Ocurrió un error inesperado. Intenta de nuevo.
           </Text>
           {__DEV__ && this.state.error && (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorTitle}>Error (solo desarrollo):</Text>
+            <View style={styles.errorBox}>
+              <Text style={styles.errorLabel}>Dev only:</Text>
               <Text style={styles.errorMessage}>{this.state.error.message}</Text>
+              <Text style={[styles.errorLabel, { marginTop: 8 }]}>Stack:</Text>
+              <Text style={[styles.errorMessage, { fontSize: 10 }]}>
+                {(this.state.error.stack || '').split('\n').slice(0, 8).join('\n')}
+              </Text>
             </View>
           )}
-          <TouchableOpacity style={styles.retryButton} onPress={this.handleRetry}>
-            <Ionicons name="refresh" size={20} color={COLORS.white} />
-            <Text style={styles.retryText}>Intentar de nuevo</Text>
-          </TouchableOpacity>
+          <View style={styles.action}>
+            <Button
+              label="INTENTAR DE NUEVO"
+              icon="refresh"
+              iconPosition="left"
+              onPress={this.handleRetry}
+              size="md"
+              fullWidth={false}
+            />
+          </View>
         </View>
       );
     }
@@ -86,58 +89,59 @@ export default class ErrorBoundary extends Component<Props, State> {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.bg,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    padding: s['2xl'],
   },
-  iconContainer: {
-    marginBottom: 24,
+  iconHalo: {
+    width: 112,
+    height: 112,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(229,72,77,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(229,72,77,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: s.xl,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: COLORS.text,
+    color: colors.text,
+    fontSize: fontSize['2xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.4,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 14,
-    color: COLORS.gray,
+    color: colors.textMuted,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.medium,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: s.xs,
     lineHeight: 20,
+    paddingHorizontal: s.md,
   },
-  errorContainer: {
-    marginTop: 24,
-    padding: 16,
-    backgroundColor: `${COLORS.danger}15`,
-    borderRadius: 8,
+  errorBox: {
+    marginTop: s.lg,
+    padding: s.md,
+    backgroundColor: 'rgba(229,72,77,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(229,72,77,0.25)',
+    borderRadius: radius.md,
     width: '100%',
   },
-  errorTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.danger,
+  errorLabel: {
+    color: colors.danger,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
     marginBottom: 4,
   },
   errorMessage: {
-    fontSize: 12,
-    color: COLORS.danger,
+    color: colors.danger,
+    fontSize: fontSize.sm,
     fontFamily: 'monospace',
   },
-  retryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
-    marginTop: 32,
-    gap: 8,
-  },
-  retryText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
+  action: { marginTop: s.xl },
 });

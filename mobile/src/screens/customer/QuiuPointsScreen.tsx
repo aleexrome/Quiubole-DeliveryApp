@@ -1,316 +1,668 @@
 // ==========================================
-// QUIUPOINTS SCREEN - PROGRAMA DE LEALTAD
+// DEVOLÓN — Devo Cupones (filename legacy: QuiuPointsScreen)
+//
+// Wallet de cupones personales del cliente. Header con balance de
+// puntos y barra de progreso hacia el próximo cupón (cada 100 pts).
+// Lista de cupones en 2 tabs: Disponibles / Historial. Cada cupón
+// muestra type (%, $, envío gratis), valor, expiración y código.
+//
+// El cliente NO canjea puntos por cupones aquí — el cupón aparece
+// automáticamente cuando cruza 100 pts y el admin lo configura.
 // ==========================================
 
-import React, { useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
-  FlatList,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { usePointsStore, AVAILABLE_REWARDS } from '../../store/pointsStore';
+import { devoCouponsApi } from '../../services/api';
+import { Card } from '../../components/ui';
+import {
+  colors,
+  s,
+  radius,
+  fontSize,
+  fontWeight,
+  tracking,
+} from '../../theme';
 
-const COLORS = {
-  primary: '#FF6B35',
-  secondary: '#2E4057',
-  background: '#F8F9FA',
-  white: '#FFFFFF',
-  gray: '#6C757D',
-  lightGray: '#E9ECEF',
-  text: '#212529',
-  gold: '#FFD700',
-  success: '#4CAF50',
-};
+const POINTS_PER_COUPON = 100;
 
-export default function QuiuPointsScreen() {
+interface UserCoupon {
+  id: string;
+  code: string;
+  status: 'pending_admin' | 'active' | 'redeemed' | 'expired';
+  type: 'percentage' | 'fixed' | 'free_delivery' | 'product_discount' | null;
+  value: number | null;
+  maxDiscount: number | null;
+  minOrderAmount: number | null;
+  description: string | null;
+  expiresAt: string | null;
+  restaurantId: string | null;
+  restaurant?: { name: string } | null;
+  redeemedAt: string | null;
+  createdAt: string;
+}
+
+type Tab = 'available' | 'history';
+
+export default function DevoCuponsScreen() {
   const navigation = useNavigation<any>();
-  const { totalPoints, lifetimePoints, transactions, redeemedRewards, redeemReward, getAvailableRewards } = usePointsStore();
+  const [points, setPoints] = useState(0);
+  const [lifetime, setLifetime] = useState(0);
+  const [coupons, setCoupons] = useState<UserCoupon[]>([]);
+  const [tab, setTab] = useState<Tab>('available');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'rewards' | 'history' | 'available'>('rewards');
-  const availableUserRewards = getAvailableRewards();
-
-  const handleRedeemReward = (reward: typeof AVAILABLE_REWARDS[0]) => {
-    if (totalPoints < reward.pointsCost) {
-      Alert.alert(
-        'Puntos insuficientes',
-        `Necesitas ${reward.pointsCost - totalPoints} puntos mas para canjear esta recompensa`
-      );
-      return;
+  const load = useCallback(async () => {
+    try {
+      const data = await devoCouponsApi.getMy();
+      setPoints(data.points || 0);
+      setLifetime(data.lifetime || 0);
+      setCoupons(Array.isArray(data.coupons) ? data.coupons : []);
+    } catch (error) {
+      console.error('Error loading devo coupons:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
+  }, []);
 
-    Alert.alert(
-      'Canjear recompensa',
-      `Quieres canjear "${reward.name}" por ${reward.pointsCost} puntos?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Canjear',
-          onPress: () => {
-            const result = redeemReward(reward);
-            if (result) {
-              Alert.alert(
-                'Recompensa canjeada!',
-                `Tu codigo es: ${result.code}\n\nUsalo en tu proximo pedido. Expira en ${reward.expiresInDays} dias.`
-              );
-            }
-          },
-        },
-      ]
-    );
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    load();
   };
 
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('es-MX', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
+  const progressInBucket = points % POINTS_PER_COUPON;
+  const progressPercent = (progressInBucket / POINTS_PER_COUPON) * 100;
+  const pointsToNext = POINTS_PER_COUPON - progressInBucket;
 
-  const renderRewardCard = (reward: typeof AVAILABLE_REWARDS[0]) => {
-    const canRedeem = totalPoints >= reward.pointsCost;
-    return (
-      <TouchableOpacity
-        key={reward.id}
-        style={[styles.rewardCard, !canRedeem && styles.rewardCardDisabled]}
-        onPress={() => handleRedeemReward(reward)}
-        disabled={!canRedeem}
-      >
-        <View style={styles.rewardIcon}>
-          <Text style={styles.rewardEmoji}>{reward.icon}</Text>
-        </View>
-        <View style={styles.rewardInfo}>
-          <Text style={styles.rewardName}>{reward.name}</Text>
-          <Text style={styles.rewardDescription}>{reward.description}</Text>
-        </View>
-        <View style={styles.rewardCost}>
-          <Text style={[styles.rewardPoints, !canRedeem && styles.rewardPointsDisabled]}>
-            {reward.pointsCost}
-          </Text>
-          <Text style={styles.rewardPtsLabel}>pts</Text>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  const renderTransaction = ({ item }: { item: typeof transactions[0] }) => (
-    <View style={styles.transactionItem}>
-      <View style={[styles.transactionIcon, item.type === 'earn' ? styles.earnIcon : styles.redeemIcon]}>
-        <Ionicons
-          name={item.type === 'earn' ? 'add' : 'gift'}
-          size={16}
-          color={item.type === 'earn' ? COLORS.success : COLORS.primary}
-        />
-      </View>
-      <View style={styles.transactionInfo}>
-        <Text style={styles.transactionDesc}>{item.description}</Text>
-        <Text style={styles.transactionDate}>{formatDate(item.createdAt)}</Text>
-      </View>
-      <Text style={[styles.transactionAmount, item.type === 'earn' ? styles.earnAmount : styles.redeemAmount]}>
-        {item.type === 'earn' ? '+' : ''}{item.amount}
-      </Text>
-    </View>
+  const available = coupons.filter(
+    (c) => c.status === 'active' || c.status === 'pending_admin',
+  );
+  const history = coupons.filter(
+    (c) => c.status === 'redeemed' || c.status === 'expired',
   );
 
-  const renderAvailableReward = ({ item }: { item: typeof availableUserRewards[0] }) => (
-    <View style={styles.availableRewardCard}>
-      <View style={styles.availableRewardHeader}>
-        <Text style={styles.availableRewardEmoji}>{item.reward.icon}</Text>
-        <View style={styles.availableRewardInfo}>
-          <Text style={styles.availableRewardName}>{item.reward.name}</Text>
-          <Text style={styles.availableRewardDesc}>{item.reward.description}</Text>
-        </View>
-      </View>
-      <View style={styles.codeContainer}>
-        <Text style={styles.codeLabel}>Tu codigo:</Text>
-        <Text style={styles.codeText}>{item.code}</Text>
-      </View>
-      <Text style={styles.expiresText}>Expira: {formatDate(item.expiresAt)}</Text>
-    </View>
-  );
+  const visibleCoupons = tab === 'available' ? available : history;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>QuiuPoints</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      {/* Points Card */}
-      <View style={styles.pointsCard}>
-        <View style={styles.pointsCardContent}>
-          <Text style={styles.pointsLabel}>Tus puntos</Text>
-          <View style={styles.pointsRow}>
-            <Ionicons name="star" size={32} color={COLORS.gold} />
-            <Text style={styles.pointsValue}>{totalPoints.toLocaleString()}</Text>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: s['4xl'] }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
+        {/* HEADER */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="chevron-back" size={26} color={colors.text} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.eyebrow}>LEALTAD</Text>
+            <Text style={styles.title}>Devo Cupones</Text>
           </View>
-          <Text style={styles.lifetimeText}>
-            Total acumulado: {lifetimePoints.toLocaleString()} pts
+        </View>
+
+        {/* HERO — balance de puntos + progreso */}
+        <Card
+          variant="raised"
+          padding={s.xl}
+          borderRadius={radius['2xl']}
+          style={styles.hero}
+        >
+          <Text style={styles.heroEyebrow}>PUNTOS DEVO</Text>
+          <Text style={styles.heroValue}>{points}</Text>
+          {available.length === 0 || progressInBucket > 0 ? (
+            <Text style={styles.heroSub}>
+              Te {pointsToNext === 1 ? 'falta' : 'faltan'}{' '}
+              <Text style={styles.heroSubStrong}>{pointsToNext}</Text>{' '}
+              {pointsToNext === 1 ? 'punto' : 'puntos'} para tu próximo cupón
+            </Text>
+          ) : (
+            <Text style={styles.heroSub}>
+              ¡Tienes cupones disponibles para usar!
+            </Text>
+          )}
+
+          {/* Progress bar */}
+          <View style={styles.progressTrack}>
+            <View
+              style={[styles.progressFill, { width: `${progressPercent}%` }]}
+            />
+          </View>
+          <View style={styles.progressRow}>
+            <Text style={styles.progressLabel}>0</Text>
+            <Text style={styles.progressLabel}>{POINTS_PER_COUPON} pts</Text>
+          </View>
+
+          <View style={styles.heroFooter}>
+            <View style={styles.heroFooterItem}>
+              <Ionicons name="cart" size={14} color={colors.primary} />
+              <Text style={styles.heroFooterText}>
+                +10 pts por cada pedido
+              </Text>
+            </View>
+            <View style={styles.heroFooterItem}>
+              <Ionicons name="gift" size={14} color={colors.primary} />
+              <Text style={styles.heroFooterText}>
+                Cupón nuevo cada 100 pts
+              </Text>
+            </View>
+          </View>
+        </Card>
+
+        {/* TABS */}
+        <View style={styles.tabsRow}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => setTab('available')}
+            style={[styles.tab, tab === 'available' && styles.tabActive]}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                tab === 'available' && styles.tabTextActive,
+              ]}
+            >
+              Disponibles ({available.length})
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => setTab('history')}
+            style={[styles.tab, tab === 'history' && styles.tabActive]}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                tab === 'history' && styles.tabTextActive,
+              ]}
+            >
+              Historial ({history.length})
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* COUPONS LIST */}
+        <View style={styles.list}>
+          {loading ? (
+            <View style={styles.loading}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : visibleCoupons.length === 0 ? (
+            <Card
+              variant="glass"
+              padding={s.xl}
+              borderRadius={radius.xl}
+              style={styles.empty}
+            >
+              <View style={styles.emptyHalo}>
+                <Ionicons
+                  name="gift-outline"
+                  size={36}
+                  color={colors.textMuted}
+                />
+              </View>
+              <Text style={styles.emptyTitle}>
+                {tab === 'available'
+                  ? 'Sin cupones por ahora'
+                  : 'Sin historial'}
+              </Text>
+              <Text style={styles.emptySub}>
+                {tab === 'available'
+                  ? 'Cada 100 puntos recibes un cupón nuevo. ¡Sigue pidiendo!'
+                  : 'Aquí aparecerán los cupones que ya usaste o expiraron.'}
+              </Text>
+            </Card>
+          ) : (
+            visibleCoupons.map((coupon) => (
+              <CouponCard key={coupon.id} coupon={coupon} />
+            ))
+          )}
+        </View>
+
+        {/* INFO FOOTER */}
+        <View style={styles.infoFooter}>
+          <Text style={styles.infoFooterText}>
+            Acumulado de por vida: {lifetime} pts
           </Text>
         </View>
-        <View style={styles.pointsInfo}>
-          <Text style={styles.pointsInfoText}>Gana 1 punto por cada $10</Text>
-        </View>
-      </View>
-
-      {/* Tabs */}
-      <View style={styles.tabs}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'rewards' && styles.tabActive]}
-          onPress={() => setActiveTab('rewards')}
-        >
-          <Text style={[styles.tabText, activeTab === 'rewards' && styles.tabTextActive]}>Canjear</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'available' && styles.tabActive]}
-          onPress={() => setActiveTab('available')}
-        >
-          <Text style={[styles.tabText, activeTab === 'available' && styles.tabTextActive]}>
-            Mis cupones ({availableUserRewards.length})
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'history' && styles.tabActive]}
-          onPress={() => setActiveTab('history')}
-        >
-          <Text style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>Historial</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Content */}
-      {activeTab === 'rewards' && (
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          <Text style={styles.sectionTitle}>Recompensas disponibles</Text>
-          {AVAILABLE_REWARDS.map(renderRewardCard)}
-          <View style={{ height: 100 }} />
-        </ScrollView>
-      )}
-
-      {activeTab === 'available' && (
-        <FlatList
-          data={availableUserRewards}
-          keyExtractor={item => item.id}
-          renderItem={renderAvailableReward}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Ionicons name="gift-outline" size={64} color={COLORS.lightGray} />
-              <Text style={styles.emptyTitle}>Sin cupones</Text>
-              <Text style={styles.emptySubtitle}>Canjea tus puntos por recompensas</Text>
-            </View>
-          }
-        />
-      )}
-
-      {activeTab === 'history' && (
-        <FlatList
-          data={transactions}
-          keyExtractor={item => item.id}
-          renderItem={renderTransaction}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Ionicons name="receipt-outline" size={64} color={COLORS.lightGray} />
-              <Text style={styles.emptyTitle}>Sin historial</Text>
-              <Text style={styles.emptySubtitle}>Tus puntos ganados y canjeados apareceran aqui</Text>
-            </View>
-          }
-        />
-      )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
+// ============ COUPON CARD ============
+function CouponCard({ coupon }: { coupon: UserCoupon }) {
+  const isPending = coupon.status === 'pending_admin';
+  const isActive = coupon.status === 'active';
+  const isRedeemed = coupon.status === 'redeemed';
+  const isExpired = coupon.status === 'expired';
+
+  const icon: keyof typeof Ionicons.glyphMap =
+    coupon.type === 'free_delivery'
+      ? 'bicycle'
+      : coupon.type === 'percentage'
+        ? 'pricetag'
+        : coupon.type === 'product_discount'
+          ? 'fast-food'
+          : 'gift';
+
+  const headline = (() => {
+    if (isPending) return 'Preparando tu cupón…';
+    if (coupon.type === 'percentage') {
+      return `${coupon.value}% OFF${coupon.maxDiscount ? ` hasta $${Number(coupon.maxDiscount).toFixed(0)}` : ''}`;
+    }
+    if (coupon.type === 'fixed') {
+      return `$${Number(coupon.value).toFixed(0)} OFF`;
+    }
+    if (coupon.type === 'free_delivery') {
+      return 'ENVÍO GRATIS';
+    }
+    if (coupon.type === 'product_discount') {
+      return `$${Number(coupon.value).toFixed(0)} en producto`;
+    }
+    return 'Cupón Devo';
+  })();
+
+  const expiresIn = (() => {
+    if (!coupon.expiresAt) return null;
+    try {
+      const exp = new Date(coupon.expiresAt);
+      const now = new Date();
+      const days = Math.ceil(
+        (exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      if (days < 0) return 'Expirado';
+      if (days === 0) return 'Expira hoy';
+      if (days === 1) return 'Expira mañana';
+      if (days <= 7) return `Expira en ${days} días`;
+      return `Hasta ${exp.toLocaleDateString('es-MX', {
+        day: 'numeric',
+        month: 'short',
+      })}`;
+    } catch {
+      return null;
+    }
+  })();
+
+  return (
+    <Card
+      variant={isPending ? 'glass' : 'raised'}
+      padding={s.lg}
+      borderRadius={radius.xl}
+      style={[
+        styles.couponCard,
+        (isRedeemed || isExpired) && styles.couponCardDisabled,
+      ]}
+    >
+      <View style={styles.couponLeft}>
+        <View
+          style={[
+            styles.couponIcon,
+            isPending && styles.couponIconPending,
+          ]}
+        >
+          <Ionicons
+            name={isPending ? 'time' : icon}
+            size={22}
+            color={isPending ? colors.textMuted : colors.primary}
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text
+            style={[
+              styles.couponHeadline,
+              isPending && styles.couponHeadlineMuted,
+            ]}
+          >
+            {headline}
+          </Text>
+          {coupon.description && !isPending && (
+            <Text style={styles.couponDescription} numberOfLines={2}>
+              {coupon.description}
+            </Text>
+          )}
+          {coupon.restaurant?.name && !isPending && (
+            <Text style={styles.couponScope}>
+              Solo en {coupon.restaurant.name}
+            </Text>
+          )}
+          {coupon.minOrderAmount && !isPending && (
+            <Text style={styles.couponMin}>
+              Pedido mínimo ${Number(coupon.minOrderAmount).toFixed(0)}
+            </Text>
+          )}
+        </View>
+      </View>
+
+      <View style={styles.couponRight}>
+        {isPending ? (
+          <View style={styles.statusChipPending}>
+            <Text style={styles.statusChipTextPending}>PENDIENTE</Text>
+          </View>
+        ) : isActive ? (
+          <>
+            <Text style={styles.couponCode}>{coupon.code}</Text>
+            {expiresIn && (
+              <Text style={styles.couponExpires}>{expiresIn}</Text>
+            )}
+          </>
+        ) : isRedeemed ? (
+          <View style={styles.statusChipUsed}>
+            <Ionicons name="checkmark" size={11} color={colors.textMuted} />
+            <Text style={styles.statusChipTextUsed}>USADO</Text>
+          </View>
+        ) : (
+          <View style={styles.statusChipUsed}>
+            <Text style={styles.statusChipTextUsed}>EXPIRADO</Text>
+          </View>
+        )}
+      </View>
+    </Card>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+  container: { flex: 1, backgroundColor: colors.bg },
+
+  // HEADER
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: COLORS.white,
+    gap: s.sm,
+    paddingHorizontal: s.xl,
+    paddingTop: s.sm,
+    paddingBottom: s.md,
   },
-  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text },
-  pointsCard: {
-    backgroundColor: COLORS.primary,
-    margin: 16,
-    borderRadius: 20,
+  eyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
+  },
+  title: {
+    color: colors.text,
+    fontSize: fontSize['2xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.5,
+    marginTop: 2,
+  },
+
+  // HERO
+  hero: { marginHorizontal: s.xl, alignItems: 'center' },
+  heroEyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+  },
+  heroValue: {
+    color: colors.primary,
+    fontSize: fontSize.hero,
+    fontWeight: fontWeight.black,
+    letterSpacing: -2,
+    marginTop: s.xs,
+  },
+  heroSub: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    marginTop: s.xs,
+    textAlign: 'center',
+  },
+  heroSubStrong: {
+    color: colors.text,
+    fontWeight: fontWeight.black,
+  },
+  progressTrack: {
+    height: 8,
+    width: '100%',
+    backgroundColor: colors.border,
+    borderRadius: 4,
     overflow: 'hidden',
+    marginTop: s.md,
   },
-  pointsCardContent: { padding: 24, alignItems: 'center' },
-  pointsLabel: { fontSize: 14, color: COLORS.white, opacity: 0.9 },
-  pointsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 },
-  pointsValue: { fontSize: 48, fontWeight: '700', color: COLORS.white },
-  lifetimeText: { fontSize: 12, color: COLORS.white, opacity: 0.8, marginTop: 8 },
-  pointsInfo: { backgroundColor: 'rgba(255,255,255,0.2)', padding: 12, alignItems: 'center' },
-  pointsInfoText: { fontSize: 13, color: COLORS.white },
-  tabs: { flexDirection: 'row', backgroundColor: COLORS.white, paddingHorizontal: 16 },
-  tab: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabActive: { borderBottomColor: COLORS.primary },
-  tabText: { fontSize: 13, fontWeight: '600', color: COLORS.gray },
-  tabTextActive: { color: COLORS.primary },
-  content: { flex: 1, padding: 16 },
-  listContent: { padding: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text, marginBottom: 12 },
-  rewardCard: {
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 4,
+  },
+  progressRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 6,
+  },
+  progressLabel: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wide,
+  },
+  heroFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: s.lg,
+    paddingTop: s.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: s.sm,
+  },
+  heroFooterItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+    gap: 4,
+    flex: 1,
   },
-  rewardCardDisabled: { opacity: 0.5 },
-  rewardIcon: { width: 50, height: 50, borderRadius: 25, backgroundColor: COLORS.lightGray, justifyContent: 'center', alignItems: 'center' },
-  rewardEmoji: { fontSize: 24 },
-  rewardInfo: { flex: 1, marginLeft: 12 },
-  rewardName: { fontSize: 15, fontWeight: '600', color: COLORS.text },
-  rewardDescription: { fontSize: 12, color: COLORS.gray, marginTop: 2 },
-  rewardCost: { alignItems: 'center' },
-  rewardPoints: { fontSize: 20, fontWeight: '700', color: COLORS.primary },
-  rewardPointsDisabled: { color: COLORS.gray },
-  rewardPtsLabel: { fontSize: 10, color: COLORS.gray },
-  availableRewardCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    borderStyle: 'dashed',
+  heroFooterText: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
   },
-  availableRewardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  availableRewardEmoji: { fontSize: 32 },
-  availableRewardInfo: { marginLeft: 12 },
-  availableRewardName: { fontSize: 16, fontWeight: '700', color: COLORS.text },
-  availableRewardDesc: { fontSize: 12, color: COLORS.gray },
-  codeContainer: { backgroundColor: COLORS.lightGray, borderRadius: 8, padding: 12, alignItems: 'center' },
-  codeLabel: { fontSize: 11, color: COLORS.gray },
-  codeText: { fontSize: 20, fontWeight: '700', color: COLORS.primary, letterSpacing: 2, marginTop: 4 },
-  expiresText: { fontSize: 11, color: COLORS.gray, textAlign: 'center', marginTop: 8 },
-  transactionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.lightGray },
-  transactionIcon: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
-  earnIcon: { backgroundColor: `${COLORS.success}20` },
-  redeemIcon: { backgroundColor: `${COLORS.primary}20` },
-  transactionInfo: { flex: 1, marginLeft: 12 },
-  transactionDesc: { fontSize: 14, color: COLORS.text },
-  transactionDate: { fontSize: 11, color: COLORS.gray, marginTop: 2 },
-  transactionAmount: { fontSize: 16, fontWeight: '700' },
-  earnAmount: { color: COLORS.success },
-  redeemAmount: { color: COLORS.primary },
-  emptyState: { alignItems: 'center', paddingVertical: 60 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text, marginTop: 16 },
-  emptySubtitle: { fontSize: 14, color: COLORS.gray, marginTop: 8, textAlign: 'center' },
+
+  // TABS
+  tabsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: s.xl,
+    marginTop: s.lg,
+    gap: s.xs,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: s.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  tabActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  tabText: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.3,
+  },
+  tabTextActive: { color: colors.onPrimary },
+
+  // LIST
+  list: {
+    paddingHorizontal: s.xl,
+    marginTop: s.md,
+    gap: s.sm,
+  },
+  loading: { paddingVertical: s['2xl'], alignItems: 'center' },
+  empty: { alignItems: 'center' },
+  emptyHalo: {
+    width: 88,
+    height: 88,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: s.md,
+  },
+  emptyTitle: {
+    color: colors.text,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
+  },
+  emptySub: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    textAlign: 'center',
+    marginTop: s.xs,
+    paddingHorizontal: s.md,
+    lineHeight: 18,
+  },
+
+  // COUPON CARD
+  couponCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s.md,
+  },
+  couponCardDisabled: { opacity: 0.55 },
+  couponLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s.sm,
+  },
+  couponIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,194,14,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  couponIconPending: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+  },
+  couponHeadline: {
+    color: colors.primary,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.3,
+  },
+  couponHeadlineMuted: {
+    color: colors.textMuted,
+    fontSize: fontSize.md,
+  },
+  couponDescription: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    marginTop: 2,
+    lineHeight: 18,
+  },
+  couponScope: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
+    marginTop: 2,
+  },
+  couponMin: {
+    color: colors.textFaint,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
+    marginTop: 2,
+  },
+  couponRight: {
+    alignItems: 'flex-end',
+    minWidth: 80,
+  },
+  couponCode: {
+    color: colors.text,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.black,
+    letterSpacing: 0.5,
+    fontFamily: 'monospace',
+  },
+  couponExpires: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.semibold,
+    marginTop: 4,
+  },
+  statusChipPending: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,194,14,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,194,14,0.4)',
+  },
+  statusChipTextPending: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.6,
+  },
+  statusChipUsed: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bgRaised,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  statusChipTextUsed: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.6,
+  },
+
+  // FOOTER
+  infoFooter: {
+    paddingHorizontal: s.xl,
+    paddingVertical: s.lg,
+    alignItems: 'center',
+  },
+  infoFooterText: {
+    color: colors.textFaint,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
+  },
 });

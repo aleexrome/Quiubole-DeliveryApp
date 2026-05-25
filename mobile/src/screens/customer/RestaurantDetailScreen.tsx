@@ -1,5 +1,10 @@
 // ==========================================
-// RESTAURANT DETAIL SCREEN - MENU DEL RESTAURANTE
+// DEVOLÓN — Restaurant Detail
+//
+// Hero cinematográfico edge-to-edge con cover image + back/heart flotantes,
+// info card glass con logo + rating, menú agrupado por categoría con cards
+// glass, CTA flotante inferior "Ver carrito" con badge amarillo. Modal de
+// opciones del producto en bottom sheet dark con stepper y CTA primario.
 // ==========================================
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -18,36 +23,33 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useCartStore } from '../../store/cartStore';
 import { Restaurant, Product, ProductOption, SelectedOption } from '../../types';
+import { Button, Card } from '../../components/ui';
+import {
+  colors,
+  s,
+  radius,
+  shadows,
+  fontSize,
+  fontWeight,
+  tracking,
+} from '../../theme';
 
-const { width, height } = Dimensions.get('window');
-const HEADER_MAX_HEIGHT = 250;
-const HEADER_MIN_HEIGHT = 100;
+const { height } = Dimensions.get('window');
+const HEADER_MAX_HEIGHT = 260;
+const HEADER_MIN_HEIGHT = 96;
 const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
 
-// Colores de la marca
-const COLORS = {
-  primary: '#FF6B35',
-  secondary: '#2E4057',
-  background: '#F8F9FA',
-  white: '#FFFFFF',
-  gray: '#6C757D',
-  lightGray: '#E9ECEF',
-  text: '#212529',
-  textLight: '#6C757D',
-  success: '#4CAF50',
-  star: '#FFD700',
-};
-
-// Datos mock de productos
+// ============ Mock products ============
 const MOCK_PRODUCTS: Product[] = [
   {
     id: '1',
     restaurantId: '1',
     name: 'Tacos al Pastor',
-    description: 'Tacos de cerdo adobado con pina, cebolla y cilantro. Servidos con salsa roja y verde.',
+    description: 'Tacos de cerdo adobado con piña, cebolla y cilantro. Servidos con salsa roja y verde.',
     price: 45,
     image: 'https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?w=400',
     category: 'Tacos',
@@ -61,7 +63,7 @@ const MOCK_PRODUCTS: Product[] = [
         type: 'single',
         required: true,
         choices: [
-          { id: 'c1', name: 'Maiz', price: 0 },
+          { id: 'c1', name: 'Maíz', price: 0 },
           { id: 'c2', name: 'Harina', price: 5 },
         ],
       },
@@ -126,7 +128,7 @@ const MOCK_PRODUCTS: Product[] = [
     id: '5',
     restaurantId: '1',
     name: 'Orden de Nachos',
-    description: 'Totopos con queso, frijoles, jalape-os, crema y guacamole',
+    description: 'Totopos con queso, frijoles, jalapeños, crema y guacamole',
     price: 85,
     image: 'https://images.unsplash.com/photo-1513456852971-30c0b8199d4d?w=400',
     category: 'Entradas',
@@ -138,18 +140,22 @@ const MOCK_PRODUCTS: Product[] = [
   },
 ];
 
-// Componente de producto
-const ProductCard = ({
-  product,
-  onPress,
-}: {
-  product: Product;
-  onPress: () => void;
-}) => (
-  <TouchableOpacity style={styles.productCard} onPress={onPress}>
+// ============ Product Card ============
+const ProductCard = ({ product, onPress }: { product: Product; onPress: () => void }) => (
+  <Card
+    variant="glass"
+    onPress={onPress}
+    padding={s.md}
+    borderRadius={radius.xl}
+    style={styles.productCard}
+  >
     <View style={styles.productInfo}>
-      <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
-      <Text style={styles.productDescription} numberOfLines={2}>{product.description}</Text>
+      <Text style={styles.productName} numberOfLines={2}>
+        {product.name}
+      </Text>
+      <Text style={styles.productDescription} numberOfLines={2}>
+        {product.description}
+      </Text>
       <View style={styles.productFooter}>
         <Text style={styles.productPrice}>${product.price}</Text>
         {!product.isAvailable && (
@@ -157,14 +163,16 @@ const ProductCard = ({
         )}
       </View>
     </View>
-    <Image source={{ uri: product.image }} style={styles.productImage} />
-    <TouchableOpacity style={styles.addButton} onPress={onPress}>
-      <Ionicons name="add" size={20} color={COLORS.white} />
-    </TouchableOpacity>
-  </TouchableOpacity>
+    <View style={styles.productImageWrap}>
+      <Image source={{ uri: product.image }} style={styles.productImage} />
+      <View style={styles.productAddBtn}>
+        <Ionicons name="add" size={18} color={colors.onPrimary} />
+      </View>
+    </View>
+  </Card>
 );
 
-// Modal de opciones de producto
+// ============ Product Options Modal ============
 const ProductOptionsModal = ({
   visible,
   product,
@@ -174,7 +182,12 @@ const ProductOptionsModal = ({
   visible: boolean;
   product: Product | null;
   onClose: () => void;
-  onAddToCart: (product: Product, quantity: number, options: SelectedOption[], instructions: string) => void;
+  onAddToCart: (
+    product: Product,
+    quantity: number,
+    options: SelectedOption[],
+    instructions: string,
+  ) => void;
 }) => {
   const [quantity, setQuantity] = useState(1);
   const [selectedOptions, setSelectedOptions] = useState<SelectedOption[]>([]);
@@ -190,29 +203,50 @@ const ProductOptionsModal = ({
 
   if (!product) return null;
 
-  const handleOptionSelect = (option: ProductOption, choice: { id: string; name: string; price: number }) => {
+  const handleOptionSelect = (
+    option: ProductOption,
+    choice: { id: string; name: string; price: number },
+  ) => {
     if (option.type === 'single') {
-      // Radio button - reemplazar seleccion
-      setSelectedOptions(prev => {
-        const filtered = prev.filter(o => o.optionId !== option.id);
-        return [...filtered, { optionId: option.id, optionName: option.name, choiceId: choice.id, choiceName: choice.name, price: choice.price }];
+      setSelectedOptions((prev) => {
+        const filtered = prev.filter((o) => o.optionId !== option.id);
+        return [
+          ...filtered,
+          {
+            optionId: option.id,
+            optionName: option.name,
+            choiceId: choice.id,
+            choiceName: choice.name,
+            price: choice.price,
+          },
+        ];
       });
     } else {
-      // Checkbox - toggle
-      setSelectedOptions(prev => {
-        const exists = prev.find(o => o.optionId === option.id && o.choiceId === choice.id);
+      setSelectedOptions((prev) => {
+        const exists = prev.find(
+          (o) => o.optionId === option.id && o.choiceId === choice.id,
+        );
         if (exists) {
-          return prev.filter(o => !(o.optionId === option.id && o.choiceId === choice.id));
-        } else {
-          return [...prev, { optionId: option.id, optionName: option.name, choiceId: choice.id, choiceName: choice.name, price: choice.price }];
+          return prev.filter(
+            (o) => !(o.optionId === option.id && o.choiceId === choice.id),
+          );
         }
+        return [
+          ...prev,
+          {
+            optionId: option.id,
+            optionName: option.name,
+            choiceId: choice.id,
+            choiceName: choice.name,
+            price: choice.price,
+          },
+        ];
       });
     }
   };
 
-  const isOptionSelected = (optionId: string, choiceId: string) => {
-    return selectedOptions.some(o => o.optionId === optionId && o.choiceId === choiceId);
-  };
+  const isOptionSelected = (optionId: string, choiceId: string) =>
+    selectedOptions.some((o) => o.optionId === optionId && o.choiceId === choiceId);
 
   const calculateTotal = () => {
     const optionsTotal = selectedOptions.reduce((sum, o) => sum + o.price, 0);
@@ -220,11 +254,10 @@ const ProductOptionsModal = ({
   };
 
   const handleAdd = () => {
-    // Validar opciones requeridas
-    const requiredOptions = product.options?.filter(o => o.required) || [];
+    const requiredOptions = product.options?.filter((o) => o.required) || [];
     for (const opt of requiredOptions) {
-      if (!selectedOptions.some(s => s.optionId === opt.id)) {
-        Alert.alert('Opcion requerida', `Por favor selecciona ${opt.name}`);
+      if (!selectedOptions.some((sel) => sel.optionId === opt.id)) {
+        Alert.alert('Opción requerida', `Por favor selecciona ${opt.name}`);
         return;
       }
     }
@@ -235,101 +268,125 @@ const ProductOptionsModal = ({
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
+        <View style={styles.modalSheet}>
           <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Header */}
             <View style={styles.modalHeader}>
               <Image source={{ uri: product.image }} style={styles.modalImage} />
-              <TouchableOpacity style={styles.modalClose} onPress={onClose}>
-                <Ionicons name="close" size={24} color={COLORS.text} />
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.85)']}
+                style={styles.modalImageGradient}
+              />
+              <TouchableOpacity style={styles.modalCloseBtn} onPress={onClose}>
+                <Ionicons name="close" size={22} color={colors.text} />
               </TouchableOpacity>
             </View>
 
-            {/* Info */}
             <View style={styles.modalInfo}>
+              <Text style={styles.modalEyebrow}>{product.category.toUpperCase()}</Text>
               <Text style={styles.modalTitle}>{product.name}</Text>
               <Text style={styles.modalDescription}>{product.description}</Text>
               <Text style={styles.modalPrice}>${product.price}</Text>
             </View>
 
-            {/* Options */}
-            {product.options?.map(option => (
+            {product.options?.map((option) => (
               <View key={option.id} style={styles.optionSection}>
                 <View style={styles.optionHeader}>
                   <Text style={styles.optionTitle}>{option.name}</Text>
-                  {option.required && <Text style={styles.requiredBadge}>Requerido</Text>}
+                  {option.required && (
+                    <View style={styles.requiredBadge}>
+                      <Text style={styles.requiredBadgeText}>REQUERIDO</Text>
+                    </View>
+                  )}
                 </View>
                 <Text style={styles.optionSubtitle}>
-                  {option.type === 'single' ? 'Selecciona una opcion' : 'Selecciona las que quieras'}
+                  {option.type === 'single'
+                    ? 'Selecciona una opción'
+                    : 'Selecciona las que quieras'}
                 </Text>
-                {option.choices.map(choice => (
-                  <TouchableOpacity
-                    key={choice.id}
-                    style={styles.choiceRow}
-                    onPress={() => handleOptionSelect(option, choice)}
-                  >
-                    <View style={styles.choiceInfo}>
-                      <Ionicons
-                        name={isOptionSelected(option.id, choice.id)
-                          ? (option.type === 'single' ? 'radio-button-on' : 'checkbox')
-                          : (option.type === 'single' ? 'radio-button-off' : 'square-outline')
-                        }
-                        size={22}
-                        color={isOptionSelected(option.id, choice.id) ? COLORS.primary : COLORS.gray}
-                      />
-                      <Text style={styles.choiceName}>{choice.name}</Text>
-                    </View>
-                    {choice.price > 0 && (
-                      <Text style={styles.choicePrice}>+${choice.price}</Text>
-                    )}
-                  </TouchableOpacity>
-                ))}
+                {option.choices.map((choice) => {
+                  const selected = isOptionSelected(option.id, choice.id);
+                  return (
+                    <TouchableOpacity
+                      key={choice.id}
+                      style={styles.choiceRow}
+                      onPress={() => handleOptionSelect(option, choice)}
+                      activeOpacity={0.85}
+                    >
+                      <View style={styles.choiceInfo}>
+                        <Ionicons
+                          name={
+                            selected
+                              ? option.type === 'single'
+                                ? 'radio-button-on'
+                                : 'checkbox'
+                              : option.type === 'single'
+                              ? 'radio-button-off'
+                              : 'square-outline'
+                          }
+                          size={22}
+                          color={selected ? colors.primary : colors.textFaint}
+                        />
+                        <Text style={styles.choiceName}>{choice.name}</Text>
+                      </View>
+                      {choice.price > 0 && (
+                        <Text style={styles.choicePrice}>+${choice.price}</Text>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             ))}
 
-            {/* Special Instructions */}
-            <View style={styles.instructionsSection}>
+            <View style={styles.optionSection}>
               <Text style={styles.optionTitle}>Instrucciones especiales</Text>
+              <Text style={styles.optionSubtitle}>Opcional</Text>
               <TextInput
                 style={styles.instructionsInput}
-                placeholder="Ej: Sin cebolla, extra salsa..."
-                placeholderTextColor={COLORS.gray}
+                placeholder="Ej: Sin cebolla, extra salsa…"
+                placeholderTextColor={colors.textFaint}
                 value={instructions}
                 onChangeText={setInstructions}
                 multiline
                 numberOfLines={3}
+                selectionColor={colors.primary}
               />
             </View>
 
-            {/* Quantity */}
             <View style={styles.quantitySection}>
               <Text style={styles.optionTitle}>Cantidad</Text>
               <View style={styles.quantityControl}>
                 <TouchableOpacity
                   style={[styles.quantityBtn, quantity <= 1 && styles.quantityBtnDisabled]}
-                  onPress={() => quantity > 1 && setQuantity(q => q - 1)}
+                  onPress={() => quantity > 1 && setQuantity((q) => q - 1)}
+                  activeOpacity={0.8}
                 >
-                  <Ionicons name="remove" size={20} color={quantity <= 1 ? COLORS.gray : COLORS.primary} />
+                  <Ionicons
+                    name="remove"
+                    size={18}
+                    color={quantity <= 1 ? colors.textFaint : colors.primary}
+                  />
                 </TouchableOpacity>
                 <Text style={styles.quantityValue}>{quantity}</Text>
                 <TouchableOpacity
                   style={styles.quantityBtn}
-                  onPress={() => setQuantity(q => q + 1)}
+                  onPress={() => setQuantity((q) => q + 1)}
+                  activeOpacity={0.8}
                 >
-                  <Ionicons name="add" size={20} color={COLORS.primary} />
+                  <Ionicons name="add" size={18} color={colors.primary} />
                 </TouchableOpacity>
               </View>
             </View>
 
-            <View style={{ height: 100 }} />
+            <View style={{ height: 120 }} />
           </ScrollView>
 
-          {/* Add to Cart Button */}
           <View style={styles.modalFooter}>
-            <TouchableOpacity style={styles.addToCartButton} onPress={handleAdd}>
-              <Text style={styles.addToCartText}>Agregar al carrito</Text>
-              <Text style={styles.addToCartPrice}>${calculateTotal().toFixed(2)}</Text>
-            </TouchableOpacity>
+            <Button
+              label={`AGREGAR · $${calculateTotal().toFixed(2)}`}
+              onPress={handleAdd}
+              icon="cart"
+              iconPosition="left"
+            />
           </View>
         </View>
       </View>
@@ -342,17 +399,21 @@ export default function RestaurantDetailScreen() {
   const route = useRoute<any>();
   const { restaurant } = route.params as { restaurant: Restaurant };
 
-  const { addItem, setRestaurant, itemCount, restaurant: cartRestaurant } = useCartStore();
+  const {
+    addItem,
+    setRestaurant,
+    itemCount,
+    restaurant: cartRestaurant,
+  } = useCartStore();
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
+  const [products] = useState<Product[]>(MOCK_PRODUCTS);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
-  // Agrupar productos por categoria
-  const categories = [...new Set(products.map(p => p.category))];
+  const categories = [...new Set(products.map((p) => p.category))];
   const productsByCategory = categories.reduce((acc, cat) => {
-    acc[cat] = products.filter(p => p.category === cat);
+    acc[cat] = products.filter((p) => p.category === cat);
     return acc;
   }, {} as Record<string, Product[]>);
 
@@ -364,120 +425,138 @@ export default function RestaurantDetailScreen() {
 
   const headerOpacity = scrollY.interpolate({
     inputRange: [0, HEADER_SCROLL_DISTANCE / 2, HEADER_SCROLL_DISTANCE],
-    outputRange: [1, 0.5, 0],
+    outputRange: [1, 0.5, 0.15],
     extrapolate: 'clamp',
   });
 
   const handleProductPress = (product: Product) => {
     if (!product.isAvailable) {
-      Alert.alert('No disponible', 'Este producto no esta disponible por el momento');
+      Alert.alert('No disponible', 'Este producto no está disponible por el momento');
       return;
     }
     setSelectedProduct(product);
     setModalVisible(true);
   };
 
-  const handleAddToCart = (product: Product, quantity: number, options: SelectedOption[], instructions: string) => {
-    // Verificar si hay items de otro restaurante
+  const handleAddToCart = (
+    product: Product,
+    quantity: number,
+    options: SelectedOption[],
+    instructions: string,
+  ) => {
     if (cartRestaurant && cartRestaurant.id !== restaurant.id) {
       Alert.alert(
-        'Cambiar restaurante?',
-        `Tu carrito tiene productos de ${cartRestaurant.name}. Quieres vaciarlo y agregar de ${restaurant.name}?`,
+        '¿Cambiar restaurante?',
+        `Tu carrito tiene productos de ${cartRestaurant.name}. ¿Quieres vaciarlo y agregar de ${restaurant.name}?`,
         [
           { text: 'Cancelar', style: 'cancel' },
           {
-            text: 'Si, cambiar',
+            text: 'Sí, cambiar',
             onPress: () => {
               setRestaurant(restaurant);
               addItem(product, quantity, options, instructions);
-              Alert.alert('Agregado', `${quantity}x ${product.name} agregado al carrito`);
+              Alert.alert('Agregado', `${quantity}× ${product.name} agregado al carrito`);
             },
           },
-        ]
+        ],
       );
     } else {
-      if (!cartRestaurant) {
-        setRestaurant(restaurant);
-      }
+      if (!cartRestaurant) setRestaurant(restaurant);
       addItem(product, quantity, options, instructions);
-      Alert.alert('Agregado', `${quantity}x ${product.name} agregado al carrito`);
+      Alert.alert('Agregado', `${quantity}× ${product.name} agregado al carrito`);
     }
   };
 
-  const handleGoToCart = () => {
-    navigation.navigate('Cart');
-  };
+  const handleGoToCart = () => navigation.navigate('Cart');
 
   return (
     <View style={styles.container}>
-      {/* Animated Header */}
-      <Animated.View style={[styles.headerContainer, { height: headerHeight }]}>
+      {/* ============ Animated Hero ============ */}
+      <Animated.View style={[styles.heroContainer, { height: headerHeight }]}>
         <Animated.Image
           source={{ uri: restaurant.coverImage }}
-          style={[styles.headerImage, { opacity: headerOpacity }]}
+          style={[styles.heroImage, { opacity: headerOpacity }]}
         />
-        <View style={styles.headerOverlay} />
-        <SafeAreaView style={styles.headerContent}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+        <LinearGradient
+          colors={['rgba(0,0,0,0.4)', 'transparent', colors.bg]}
+          locations={[0, 0.4, 1]}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <SafeAreaView style={styles.heroOverlay} edges={['top']}>
+          <TouchableOpacity
+            style={styles.heroIconBtn}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="chevron-back" size={24} color={colors.text} />
           </TouchableOpacity>
-          <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.actionBtn}>
-              <Ionicons name="heart-outline" size={24} color={COLORS.white} />
+          <View style={styles.heroActions}>
+            <TouchableOpacity style={styles.heroIconBtn} activeOpacity={0.85}>
+              <Ionicons name="heart-outline" size={20} color={colors.text} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtn}>
-              <Ionicons name="share-outline" size={24} color={COLORS.white} />
+            <TouchableOpacity style={styles.heroIconBtn} activeOpacity={0.85}>
+              <Ionicons name="share-outline" size={20} color={colors.text} />
             </TouchableOpacity>
           </View>
         </SafeAreaView>
       </Animated.View>
 
-      {/* Content */}
+      {/* ============ Content ============ */}
       <Animated.ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingTop: HEADER_MAX_HEIGHT }}
+        contentContainerStyle={{ paddingTop: HEADER_MAX_HEIGHT - 32, paddingBottom: 140 }}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }
+          { useNativeDriver: false },
         )}
         scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
       >
         {/* Restaurant Info Card */}
-        <View style={styles.infoCard}>
-          <View style={styles.infoHeader}>
-            <Image source={{ uri: restaurant.logo }} style={styles.logo} />
-            <View style={styles.infoContent}>
-              <Text style={styles.restaurantName}>{restaurant.name}</Text>
-              <Text style={styles.category}>{restaurant.category}</Text>
+        <View style={styles.infoWrap}>
+          <Card variant="glass" padding={s.lg} borderRadius={radius['2xl']}>
+            <View style={styles.infoHeader}>
+              <Image source={{ uri: restaurant.logo }} style={styles.logo} />
+              <View style={styles.infoContent}>
+                <Text style={styles.eyebrow}>{restaurant.category.toUpperCase()}</Text>
+                <Text style={styles.restaurantName} numberOfLines={1}>
+                  {restaurant.name}
+                </Text>
+                <View style={styles.ratingRow}>
+                  <Ionicons name="star" size={12} color={colors.primary} />
+                  <Text style={styles.ratingText}>{restaurant.rating}</Text>
+                  <Text style={styles.reviewsText}>
+                    ({restaurant.totalReviews} reseñas)
+                  </Text>
+                </View>
+              </View>
             </View>
-            <View style={styles.ratingContainer}>
-              <Ionicons name="star" size={16} color={COLORS.star} />
-              <Text style={styles.rating}>{restaurant.rating}</Text>
-              <Text style={styles.reviews}>({restaurant.totalReviews})</Text>
+
+            <Text style={styles.description}>{restaurant.description}</Text>
+
+            <View style={styles.metaRow}>
+              <View style={styles.metaPill}>
+                <Ionicons name="time-outline" size={11} color={colors.textMuted} />
+                <Text style={styles.metaText}>{restaurant.deliveryTime}</Text>
+              </View>
+              <View style={styles.metaPill}>
+                <Ionicons name="bicycle-outline" size={11} color={colors.textMuted} />
+                <Text style={styles.metaText}>${restaurant.deliveryFee} envío</Text>
+              </View>
+              <View style={styles.metaPill}>
+                <Ionicons name="cart-outline" size={11} color={colors.textMuted} />
+                <Text style={styles.metaText}>Mín ${restaurant.minimumOrder}</Text>
+              </View>
             </View>
-          </View>
-          <Text style={styles.description}>{restaurant.description}</Text>
-          <View style={styles.metaRow}>
-            <View style={styles.metaItem}>
-              <Ionicons name="time-outline" size={16} color={COLORS.gray} />
-              <Text style={styles.metaText}>{restaurant.deliveryTime}</Text>
-            </View>
-            <View style={styles.metaItem}>
-              <Ionicons name="bicycle-outline" size={16} color={COLORS.gray} />
-              <Text style={styles.metaText}>${restaurant.deliveryFee} envio</Text>
-            </View>
-            <View style={styles.metaItem}>
-              <Ionicons name="cart-outline" size={16} color={COLORS.gray} />
-              <Text style={styles.metaText}>Min ${restaurant.minimumOrder}</Text>
-            </View>
-          </View>
+          </Card>
         </View>
 
         {/* Menu */}
-        {categories.map(category => (
+        {categories.map((category) => (
           <View key={category} style={styles.categorySection}>
+            <Text style={styles.sectionEyebrow}>MENÚ</Text>
             <Text style={styles.categoryTitle}>{category}</Text>
-            {productsByCategory[category].map(product => (
+            {productsByCategory[category].map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
@@ -486,19 +565,21 @@ export default function RestaurantDetailScreen() {
             ))}
           </View>
         ))}
-
-        <View style={{ height: 120 }} />
       </Animated.ScrollView>
 
-      {/* Cart Footer */}
+      {/* ============ Floating Cart CTA ============ */}
       {itemCount > 0 && (
         <View style={styles.cartFooter}>
-          <TouchableOpacity style={styles.viewCartButton} onPress={handleGoToCart}>
+          <TouchableOpacity
+            style={styles.cartCTA}
+            onPress={handleGoToCart}
+            activeOpacity={0.88}
+          >
             <View style={styles.cartBadge}>
               <Text style={styles.cartBadgeText}>{itemCount}</Text>
             </View>
-            <Text style={styles.viewCartText}>Ver carrito</Text>
-            <Ionicons name="arrow-forward" size={20} color={COLORS.white} />
+            <Text style={styles.cartCTAText}>VER CARRITO</Text>
+            <Ionicons name="arrow-forward" size={18} color={colors.onPrimary} />
           </TouchableOpacity>
         </View>
       )}
@@ -515,407 +596,442 @@ export default function RestaurantDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  headerContainer: {
+  container: { flex: 1, backgroundColor: colors.bg },
+
+  // ============ HERO ============
+  heroContainer: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     zIndex: 10,
     overflow: 'hidden',
+    backgroundColor: colors.bg,
   },
-  headerImage: {
+  heroImage: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
   },
-  headerOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-  },
-  headerContent: {
+  heroOverlay: {
     ...StyleSheet.absoluteFillObject,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingHorizontal: s.md,
+    paddingTop: s.xs,
   },
-  backBtn: {
+  heroIconBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderWidth: 1,
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerActions: {
+  heroActions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: s.xs,
   },
-  actionBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  infoCard: {
-    backgroundColor: COLORS.white,
-    marginTop: -20,
-    marginHorizontal: 16,
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+
+  scrollView: { flex: 1 },
+
+  // ============ INFO CARD ============
+  infoWrap: {
+    paddingHorizontal: s.xl,
+    marginBottom: s.xl,
   },
   infoHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: s.md,
   },
   logo: {
     width: 60,
     height: 60,
-    borderRadius: 30,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  infoContent: {
-    flex: 1,
-    marginLeft: 12,
+  infoContent: { flex: 1 },
+  eyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
   },
   restaurantName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  category: {
-    fontSize: 14,
-    color: COLORS.primary,
+    color: colors.text,
+    fontSize: fontSize['2xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.4,
     marginTop: 2,
   },
-  ratingContainer: {
+  ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
   },
-  rating: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginLeft: 4,
+  ratingText: {
+    color: colors.primary,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.heavy,
   },
-  reviews: {
-    fontSize: 12,
-    color: COLORS.gray,
+  reviewsText: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
     marginLeft: 2,
   },
   description: {
-    fontSize: 13,
-    color: COLORS.gray,
-    marginTop: 12,
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
     lineHeight: 18,
+    marginTop: s.md,
   },
   metaRow: {
     flexDirection: 'row',
-    marginTop: 12,
-    gap: 16,
+    flexWrap: 'wrap',
+    gap: s.xs,
+    marginTop: s.md,
   },
-  metaItem: {
+  metaPill: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bgRaised,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   metaText: {
-    fontSize: 12,
-    color: COLORS.gray,
-    marginLeft: 4,
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
   },
+
+  // ============ CATEGORY SECTION ============
   categorySection: {
-    marginTop: 24,
-    paddingHorizontal: 16,
+    paddingHorizontal: s.xl,
+    marginBottom: s.xl,
+  },
+  sectionEyebrow: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
+    textTransform: 'uppercase',
   },
   categoryTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 12,
+    color: colors.text,
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.3,
+    marginTop: 2,
+    marginBottom: s.md,
   },
+
+  // ============ PRODUCT CARD ============
   productCard: {
     flexDirection: 'row',
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    gap: s.md,
+    marginBottom: s.xs,
   },
   productInfo: {
     flex: 1,
-    marginRight: 12,
+    justifyContent: 'space-between',
   },
   productName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.text,
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
   },
   productDescription: {
-    fontSize: 12,
-    color: COLORS.gray,
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
     marginTop: 4,
     lineHeight: 16,
   },
   productFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: s.xs,
   },
   productPrice: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: COLORS.primary,
+    color: colors.primary,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.2,
   },
   unavailableText: {
-    fontSize: 11,
-    color: COLORS.gray,
-    marginLeft: 8,
+    color: colors.textFaint,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
     fontStyle: 'italic',
+    marginLeft: s.xs,
+  },
+  productImageWrap: {
+    position: 'relative',
   },
   productImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
+    width: 84,
+    height: 84,
+    borderRadius: radius.md,
   },
-  addButton: {
+  productAddBtn: {
     position: 'absolute',
-    bottom: 8,
-    right: 8,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
+    bottom: -6,
+    right: -6,
+    width: 30,
+    height: 30,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.bg,
+    ...shadows.glow,
   },
+
+  // ============ FLOATING CART CTA ============
   cartFooter: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: COLORS.white,
-    padding: 16,
-    paddingBottom: 32,
+    paddingHorizontal: s.xl,
+    paddingTop: s.md,
+    paddingBottom: s['2xl'],
+    backgroundColor: colors.bg,
     borderTopWidth: 1,
-    borderTopColor: COLORS.lightGray,
+    borderTopColor: colors.border,
   },
-  viewCartButton: {
-    backgroundColor: COLORS.primary,
+  cartCTA: {
+    height: 56,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8,
+    gap: s.sm,
+    paddingHorizontal: s.lg,
+    ...shadows.glow,
   },
   cartBadge: {
-    backgroundColor: COLORS.white,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
+    minWidth: 26,
+    height: 26,
+    paddingHorizontal: 6,
+    borderRadius: radius.pill,
+    backgroundColor: colors.onPrimary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cartBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.primary,
+    color: colors.primary,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.black,
   },
-  viewCartText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.white,
+  cartCTAText: {
+    color: colors.onPrimary,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.black,
+    letterSpacing: tracking.widest,
   },
-  // Modal styles
+
+  // ============ MODAL ============
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'flex-end',
   },
-  modalContent: {
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: height * 0.85,
+  modalSheet: {
+    backgroundColor: colors.bgRaised,
+    borderTopLeftRadius: radius['3xl'],
+    borderTopRightRadius: radius['3xl'],
+    maxHeight: height * 0.9,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   modalHeader: {
     position: 'relative',
   },
   modalImage: {
     width: '100%',
-    height: 200,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    height: 220,
+    borderTopLeftRadius: radius['3xl'],
+    borderTopRightRadius: radius['3xl'],
   },
-  modalClose: {
+  modalImageGradient: {
     position: 'absolute',
-    top: 16,
-    right: 16,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '60%',
+  },
+  modalCloseBtn: {
+    position: 'absolute',
+    top: s.md,
+    right: s.md,
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.white,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    borderWidth: 1,
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalInfo: {
-    padding: 16,
+    padding: s.xl,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
+    borderBottomColor: colors.border,
+  },
+  modalEyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: COLORS.text,
+    color: colors.text,
+    fontSize: fontSize['3xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.6,
+    marginTop: 4,
   },
   modalDescription: {
-    fontSize: 14,
-    color: COLORS.gray,
-    marginTop: 8,
+    color: colors.textMuted,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.medium,
+    marginTop: s.xs,
     lineHeight: 20,
   },
   modalPrice: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.primary,
-    marginTop: 8,
+    color: colors.primary,
+    fontSize: fontSize['2xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.4,
+    marginTop: s.md,
   },
   optionSection: {
-    padding: 16,
+    paddingHorizontal: s.xl,
+    paddingVertical: s.lg,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
+    borderBottomColor: colors.border,
   },
   optionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: s.xs,
   },
   optionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.text,
+    color: colors.text,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: -0.2,
   },
   requiredBadge: {
-    backgroundColor: COLORS.primary,
-    color: COLORS.white,
-    fontSize: 10,
-    fontWeight: '700',
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 4,
-    marginLeft: 8,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  requiredBadgeText: {
+    color: colors.primary,
+    fontSize: 9,
+    fontWeight: fontWeight.black,
+    letterSpacing: tracking.wider,
   },
   optionSubtitle: {
-    fontSize: 12,
-    color: COLORS.gray,
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
     marginTop: 4,
-    marginBottom: 12,
+    marginBottom: s.sm,
   },
   choiceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10,
+    paddingVertical: s.sm,
   },
   choiceInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: s.sm,
   },
   choiceName: {
-    fontSize: 14,
-    color: COLORS.text,
-    marginLeft: 12,
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
   },
   choicePrice: {
-    fontSize: 14,
-    color: COLORS.gray,
-  },
-  instructionsSection: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.heavy,
   },
   instructionsInput: {
-    backgroundColor: COLORS.lightGray,
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 8,
-    fontSize: 14,
-    color: COLORS.text,
-    minHeight: 80,
+    backgroundColor: colors.inputBg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: s.md,
+    marginTop: s.xs,
+    fontSize: fontSize.md,
+    color: colors.text,
+    minHeight: 88,
     textAlignVertical: 'top',
   },
   quantitySection: {
-    padding: 16,
+    paddingHorizontal: s.xl,
+    paddingVertical: s.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   quantityControl: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.lightGray,
-    borderRadius: 8,
+    backgroundColor: colors.bgRaised,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.pill,
     padding: 4,
   },
   quantityBtn: {
     width: 36,
     height: 36,
+    borderRadius: radius.pill,
     justifyContent: 'center',
     alignItems: 'center',
   },
   quantityBtnDisabled: {
-    opacity: 0.5,
+    opacity: 0.4,
   },
   quantityValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginHorizontal: 16,
+    color: colors.text,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.black,
+    minWidth: 36,
+    textAlign: 'center',
   },
   modalFooter: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: COLORS.white,
-    padding: 16,
-    paddingBottom: 32,
+    padding: s.xl,
+    paddingBottom: s['2xl'],
     borderTopWidth: 1,
-    borderTopColor: COLORS.lightGray,
-  },
-  addToCartButton: {
-    backgroundColor: COLORS.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-  },
-  addToCartText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-  addToCartPrice: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.white,
+    borderTopColor: colors.border,
+    backgroundColor: colors.bgRaised,
   },
 });

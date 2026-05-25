@@ -1,8 +1,9 @@
 // ==========================================
-// PANTALLA DE PEDIDOS DEL RESTAURANTE
+// DEVOLÓN — Restaurant Orders
+// Lista de pedidos filtrable por tabs de estado, con acciones inline.
 // ==========================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,6 +18,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { ordersApi } from '../../services/api';
 import { Order, OrderStatus } from '../../types';
+import { Card, Button, EmptyState } from '../../components/ui';
+import {
+  colors,
+  s,
+  radius,
+  fontSize,
+  fontWeight,
+  tracking,
+} from '../../theme';
 
 const STATUS_TABS: { key: OrderStatus | 'all'; label: string }[] = [
   { key: 'all', label: 'Todos' },
@@ -25,16 +35,16 @@ const STATUS_TABS: { key: OrderStatus | 'all'; label: string }[] = [
   { key: 'ready_for_pickup', label: 'Listos' },
 ];
 
-const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string; bgColor: string }> = {
-  pending: { label: 'Nuevo', color: '#FF6B35', bgColor: '#FFF5F0' },
-  confirmed: { label: 'Confirmado', color: '#3B82F6', bgColor: '#EFF6FF' },
-  preparing: { label: 'Preparando', color: '#EAB308', bgColor: '#FEFCE8' },
-  ready_for_pickup: { label: 'Listo', color: '#22C55E', bgColor: '#F0FDF4' },
-  driver_assigned: { label: 'Repartidor en camino', color: '#8B5CF6', bgColor: '#F5F3FF' },
-  picked_up: { label: 'Recogido', color: '#06B6D4', bgColor: '#ECFEFF' },
-  on_the_way: { label: 'En camino', color: '#EC4899', bgColor: '#FDF2F8' },
-  delivered: { label: 'Entregado', color: '#22C55E', bgColor: '#F0FDF4' },
-  cancelled: { label: 'Cancelado', color: '#EF4444', bgColor: '#FEF2F2' },
+const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string }> = {
+  pending: { label: 'Nuevo', color: colors.primary },
+  confirmed: { label: 'Confirmado', color: colors.info },
+  preparing: { label: 'Preparando', color: colors.info },
+  ready_for_pickup: { label: 'Listo', color: colors.success },
+  driver_assigned: { label: 'Repartidor', color: colors.primary },
+  picked_up: { label: 'Recogido', color: colors.primary },
+  on_the_way: { label: 'En camino', color: colors.primary },
+  delivered: { label: 'Entregado', color: colors.success },
+  cancelled: { label: 'Cancelado', color: colors.danger },
 };
 
 export default function RestaurantOrdersScreen() {
@@ -65,8 +75,8 @@ export default function RestaurantOrdersScreen() {
 
   const handleAcceptOrder = async (order: Order) => {
     Alert.prompt(
-      'Tiempo de Preparacion',
-      '¿Cuantos minutos tardara el pedido?',
+      'Tiempo de preparación',
+      '¿Cuántos minutos tardará el pedido?',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -82,14 +92,14 @@ export default function RestaurantOrdersScreen() {
         },
       ],
       'plain-text',
-      '30'
+      '30',
     );
   };
 
   const handleRejectOrder = async (order: Order) => {
     Alert.alert(
-      'Rechazar Pedido',
-      '¿Estas seguro? Esta accion no se puede deshacer.',
+      'Rechazar pedido',
+      '¿Estás seguro? Esta acción no se puede deshacer.',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -104,7 +114,7 @@ export default function RestaurantOrdersScreen() {
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -112,129 +122,248 @@ export default function RestaurantOrdersScreen() {
     try {
       await ordersApi.markReady(order.id);
       loadOrders();
-      Alert.alert('Listo', 'El pedido esta listo para recoger');
+      Alert.alert('Listo', 'El pedido está listo para recoger');
     } catch (error) {
       Alert.alert('Error', 'No se pudo actualizar el pedido');
     }
   };
 
-  const formatCurrency = (amount: number) => `$${amount.toFixed(2)}`;
-
+  const formatCurrency = (amount: number | string | undefined | null) => {
+    const n = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return `$${(n ?? 0).toFixed(2)}`;
+  };
   const formatTime = (date: Date) => {
     const d = new Date(date);
     return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const renderOrder = ({ item: order }: { item: Order }) => {
-    const statusConfig = STATUS_CONFIG[order.status];
+  // Abre el chat con uno de los participantes del pedido (cliente o driver).
+  const openChat = async (
+    order: any,
+    role: 'customer' | 'driver',
+    fallbackName: string,
+  ) => {
+    try {
+      const { messagesApi } = await import('../../services/api');
+      const participants = await messagesApi.getParticipants(order.id);
+      const target = participants.find((p: any) => p.role === role);
+      if (!target) {
+        const { Alert } = await import('react-native');
+        Alert.alert(
+          role === 'driver' ? 'Aún sin repartidor' : 'Sin cliente disponible',
+          role === 'driver'
+            ? 'Todavía no hay un repartidor asignado.'
+            : 'No se puede contactar al cliente en este momento.',
+        );
+        return;
+      }
+      navigation.navigate('Chat', {
+        orderId: order.id,
+        otherUserId: target.userId,
+        otherUserName: fallbackName,
+        otherUserRole: role,
+        orderNumber: `#${order.orderNumber}`,
+      });
+    } catch (error: any) {
+      const { Alert } = await import('react-native');
+      Alert.alert(
+        'No se pudo abrir el chat',
+        error?.response?.data?.message || 'Intenta de nuevo.',
+      );
+    }
+  };
 
+  const renderOrder = ({ item: order }: { item: Order }) => {
+    const sc = STATUS_CONFIG[order.status];
+    const customerName =
+      order.customer?.name ||
+      [order.customer?.firstName, order.customer?.lastName]
+        .filter(Boolean)
+        .join(' ') ||
+      'Cliente';
+    const driverName =
+      (order as any).driver?.name ||
+      [
+        (order as any).driver?.firstName,
+        (order as any).driver?.lastName,
+      ]
+        .filter(Boolean)
+        .join(' ') ||
+      'Repartidor';
     return (
-      <TouchableOpacity
-        style={styles.orderCard}
+      <Card
+        variant="glass"
+        padding={s.lg}
+        borderRadius={radius.xl}
         onPress={() => navigation.navigate('OrderDetail', { orderId: order.id })}
+        style={styles.orderCard}
       >
         {/* Header */}
         <View style={styles.orderHeader}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.orderNumber}>#{order.orderNumber}</Text>
             <Text style={styles.orderTime}>{formatTime(order.createdAt)}</Text>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: statusConfig.bgColor }]}>
-            <Text style={[styles.statusText, { color: statusConfig.color }]}>
-              {statusConfig.label}
-            </Text>
+          <View style={styles.statusChip}>
+            <View style={[styles.statusDot, { backgroundColor: sc.color }]} />
+            <Text style={[styles.statusText, { color: sc.color }]}>{sc.label}</Text>
           </View>
         </View>
 
-        {/* Customer */}
-        <View style={styles.customerInfo}>
-          <Ionicons name="person-outline" size={16} color="#666" />
-          <Text style={styles.customerName}>{order.customer.name}</Text>
+        {/* Customer — row con nombre + botón de chat */}
+        <View style={styles.customerRow}>
+          <View style={styles.customerInfo}>
+            <Ionicons name="person-outline" size={14} color={colors.textMuted} />
+            <Text style={styles.customerName} numberOfLines={1}>
+              {customerName}
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={(e) => {
+              e.stopPropagation?.();
+              openChat(order, 'customer', customerName);
+            }}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            style={styles.chatChip}
+          >
+            <Ionicons name="chatbubble" size={12} color={colors.primary} />
+            <Text style={styles.chatChipText}>MENSAJE</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Items */}
+        {/* Driver — solo si hay rider asignado */}
+        {(order as any).driverId && (
+          <View style={styles.customerRow}>
+            <View style={styles.customerInfo}>
+              <Ionicons name="bicycle-outline" size={14} color={colors.textMuted} />
+              <Text style={styles.customerName} numberOfLines={1}>
+                {driverName}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={(e) => {
+                e.stopPropagation?.();
+                openChat(order, 'driver', driverName);
+              }}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              style={styles.chatChip}
+            >
+              <Ionicons name="chatbubble" size={12} color={colors.primary} />
+              <Text style={styles.chatChipText}>MENSAJE</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Items — el order trae `items` como jsonb snapshot (cart) y
+            como relación `order_items`. Usamos lo que esté disponible. */}
         <View style={styles.itemsList}>
-          {order.items.slice(0, 3).map((item, index) => (
+          {(order.items || []).slice(0, 3).map((item: any, index: number) => (
             <Text key={index} style={styles.itemText}>
-              {item.quantity}x {item.product.name}
+              <Text style={styles.itemQty}>{item.quantity}× </Text>
+              {item.product?.name || item.name || 'Producto'}
             </Text>
           ))}
-          {order.items.length > 3 && (
+          {(order.items?.length || 0) > 3 && (
             <Text style={styles.moreItems}>
-              +{order.items.length - 3} productos mas
+              +{order.items.length - 3} producto
+              {order.items.length - 3 === 1 ? '' : 's'} más
             </Text>
           )}
         </View>
 
-        {/* Special Instructions */}
-        {order.specialInstructions && (
-          <View style={styles.instructions}>
-            <Ionicons name="chatbubble-outline" size={14} color="#FF6B35" />
-            <Text style={styles.instructionsText} numberOfLines={2}>
-              {order.specialInstructions}
+        {/* Notas del cliente para cocina ("sin catsup", "sin chile") */}
+        {((order as any).customerNotes || (order as any).specialInstructions) && (
+          <View style={styles.notesCard}>
+            <View style={styles.notesHeader}>
+              <Ionicons name="restaurant" size={13} color={colors.primary} />
+              <Text style={styles.notesEyebrow}>NOTAS DEL CLIENTE</Text>
+            </View>
+            <Text style={styles.notesText}>
+              {(order as any).customerNotes ||
+                (order as any).specialInstructions}
             </Text>
           </View>
         )}
 
         {/* Total */}
         <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Total:</Text>
+          <Text style={styles.totalLabel}>TOTAL</Text>
           <Text style={styles.totalValue}>{formatCurrency(order.total)}</Text>
         </View>
 
-        {/* Actions based on status */}
+        {/* Actions */}
         {order.status === 'pending' && (
           <View style={styles.actions}>
-            <TouchableOpacity
-              style={styles.rejectBtn}
-              onPress={() => handleRejectOrder(order)}
-            >
-              <Ionicons name="close" size={18} color="#EF4444" />
-              <Text style={styles.rejectBtnText}>Rechazar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.acceptBtn}
-              onPress={() => handleAcceptOrder(order)}
-            >
-              <Ionicons name="checkmark" size={18} color="#fff" />
-              <Text style={styles.acceptBtnText}>Aceptar</Text>
-            </TouchableOpacity>
+            <View style={styles.actionItem}>
+              <Button
+                label="Rechazar"
+                variant="danger"
+                size="md"
+                icon="close"
+                iconPosition="left"
+                onPress={() => handleRejectOrder(order)}
+              />
+            </View>
+            <View style={styles.actionItem}>
+              <Button
+                label="Aceptar"
+                variant="primary"
+                size="md"
+                icon="checkmark"
+                iconPosition="left"
+                onPress={() => handleAcceptOrder(order)}
+              />
+            </View>
           </View>
         )}
 
         {order.status === 'preparing' && (
-          <TouchableOpacity
-            style={styles.readyBtn}
-            onPress={() => handleMarkReady(order)}
-          >
-            <Ionicons name="checkmark-circle" size={18} color="#fff" />
-            <Text style={styles.readyBtnText}>Marcar como Listo</Text>
-          </TouchableOpacity>
+          <View style={styles.singleAction}>
+            <Button
+              label="Marcar como listo"
+              variant="primary"
+              size="md"
+              icon="checkmark-circle"
+              iconPosition="left"
+              onPress={() => handleMarkReady(order)}
+            />
+          </View>
         )}
-      </TouchableOpacity>
+      </Card>
     );
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
+        <Text style={styles.eyebrow}>DEVOLÓN · OPERACIÓN</Text>
         <Text style={styles.title}>Pedidos</Text>
       </View>
 
       {/* Tabs */}
-      <View style={styles.tabs}>
-        {STATUS_TABS.map((tab) => (
-          <TouchableOpacity
-            key={tab.key}
-            style={[styles.tab, activeTab === tab.key && styles.tabActive]}
-            onPress={() => setActiveTab(tab.key)}
-          >
-            <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      <View style={styles.tabsWrap}>
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={STATUS_TABS}
+          keyExtractor={(t) => t.key}
+          contentContainerStyle={styles.tabsList}
+          renderItem={({ item: tab }) => {
+            const active = activeTab === tab.key;
+            return (
+              <TouchableOpacity
+                style={[styles.tab, active && styles.tabActive]}
+                onPress={() => setActiveTab(tab.key)}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.tabText, active && styles.tabTextActive]}>
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          }}
+        />
       </View>
 
       {/* Orders List */}
@@ -244,13 +373,19 @@ export default function RestaurantOrdersScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
         }
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="receipt-outline" size={64} color="#E5E5E5" />
-            <Text style={styles.emptyText}>No hay pedidos</Text>
-          </View>
+          <EmptyState
+            icon="receipt-outline"
+            title="Sin pedidos"
+            subtitle="Aún no hay pedidos en este estado."
+          />
         }
       />
     </SafeAreaView>
@@ -258,188 +393,231 @@ export default function RestaurantOrdersScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
+  container: { flex: 1, backgroundColor: colors.bg },
+
   header: {
-    padding: 20,
-    backgroundColor: '#fff',
+    paddingHorizontal: s.xl,
+    paddingTop: s.sm,
+    paddingBottom: s.md,
+  },
+  eyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0F172A',
-  },
-  tabs: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    gap: 8,
-  },
-  tab: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#F5F5F5',
-  },
-  tabActive: {
-    backgroundColor: '#FF6B35',
-  },
-  tabText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  tabTextActive: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  list: {
-    padding: 16,
-  },
-  orderCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  orderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  orderNumber: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#0F172A',
-  },
-  orderTime: {
-    fontSize: 12,
-    color: '#666',
+    color: colors.text,
+    fontSize: fontSize['3xl'],
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.6,
     marginTop: 2,
   },
-  statusBadge: {
-    paddingHorizontal: 10,
+
+  // ============ TABS ============
+  tabsWrap: {
+    paddingBottom: s.md,
+  },
+  tabsList: {
+    paddingHorizontal: s.xl,
+    gap: s.xs,
+  },
+  tab: {
+    paddingHorizontal: s.md,
+    paddingVertical: s.xs,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginRight: s.xs,
+  },
+  tabActive: {
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    borderColor: colors.primary,
+  },
+  tabText: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.3,
+  },
+  tabTextActive: {
+    color: colors.primary,
+  },
+
+  // ============ LIST ============
+  list: {
+    paddingHorizontal: s.xl,
+    paddingBottom: s['4xl'],
+    flexGrow: 1,
+  },
+  orderCard: {
+    marginBottom: s.sm,
+  },
+
+  // ============ HEADER OF CARD ============
+  orderHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: s.sm,
+  },
+  orderNumber: {
+    color: colors.text,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.2,
+  },
+  orderTime: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+    marginTop: 2,
+  },
+  statusChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: s.xs,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bgRaised,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 999,
   },
   statusText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.black,
+    letterSpacing: tracking.wider,
+    textTransform: 'uppercase',
+  },
+
+  // ============ CUSTOMER / DRIVER ROW ============
+  customerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: s.sm,
+    gap: s.sm,
   },
   customerInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
-  },
-  customerName: {
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 6,
-  },
-  itemsList: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F5F5F5',
-  },
-  itemText: {
-    fontSize: 14,
-    color: '#0F172A',
-    marginBottom: 4,
-  },
-  moreItems: {
-    fontSize: 12,
-    color: '#FF6B35',
-    marginTop: 4,
-  },
-  instructions: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#FFF5F0',
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 12,
-  },
-  instructionsText: {
-    fontSize: 12,
-    color: '#666',
-    marginLeft: 6,
+    gap: 6,
     flex: 1,
   },
+  customerName: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    flex: 1,
+  },
+  chatChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,194,14,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,194,14,0.35)',
+  },
+  chatChipText: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.black,
+    letterSpacing: 0.6,
+  },
+
+  // ============ ITEMS ============
+  itemsList: {
+    marginTop: s.sm,
+    paddingTop: s.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: 4,
+  },
+  itemText: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+  },
+  itemQty: {
+    color: colors.primary,
+    fontWeight: fontWeight.black,
+  },
+  moreItems: {
+    color: colors.primary,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: 0.3,
+    marginTop: 2,
+  },
+
+  // ============ NOTAS COCINA ============
+  notesCard: {
+    backgroundColor: 'rgba(255,194,14,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,194,14,0.40)',
+    padding: s.sm,
+    borderRadius: radius.md,
+    marginTop: s.sm,
+  },
+  notesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 4,
+  },
+  notesEyebrow: {
+    color: colors.primary,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.wider,
+  },
+  notesText: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    lineHeight: 18,
+  },
+
+  // ============ TOTAL ============
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 12,
-    paddingTop: 12,
+    alignItems: 'center',
+    marginTop: s.sm,
+    paddingTop: s.sm,
     borderTopWidth: 1,
-    borderTopColor: '#F5F5F5',
+    borderTopColor: colors.border,
   },
   totalLabel: {
-    fontSize: 14,
-    color: '#666',
+    color: colors.textMuted,
+    fontSize: fontSize.xxs,
+    fontWeight: fontWeight.heavy,
+    letterSpacing: tracking.widest,
   },
   totalValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#0F172A',
+    color: colors.primary,
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.black,
+    letterSpacing: -0.2,
   },
+
+  // ============ ACTIONS ============
   actions: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 16,
+    gap: s.sm,
+    marginTop: s.md,
   },
-  rejectBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#EF4444',
-    gap: 6,
-  },
-  rejectBtnText: {
-    color: '#EF4444',
-    fontWeight: '600',
-  },
-  acceptBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: '#22C55E',
-    gap: 6,
-  },
-  acceptBtnText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  readyBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: '#FF6B35',
-    marginTop: 16,
-    gap: 6,
-  },
-  readyBtnText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  empty: {
-    alignItems: 'center',
-    paddingVertical: 64,
-  },
-  emptyText: {
-    color: '#666',
-    marginTop: 12,
-    fontSize: 16,
+  actionItem: { flex: 1 },
+  singleAction: {
+    marginTop: s.md,
   },
 });
