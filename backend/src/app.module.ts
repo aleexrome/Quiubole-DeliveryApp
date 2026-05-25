@@ -21,6 +21,7 @@ import { MapsModule } from './maps/maps.module';
 import { ChatModule } from './chat/chat.module';
 import { MessagesModule } from './messages/messages.module';
 import { DevoCouponsModule } from './devo-coupons/devo-coupons.module';
+import { DemoSeedService } from './seed/demo-seed.service';
 import { AiModule } from './ai/ai.module';
 import { EmailModule } from './email/email.module';
 import { MailModule } from './mail/mail.module';
@@ -158,6 +159,11 @@ import { UserCoupon } from './devo-coupons/user-coupon.entity';
     PaymentMethodsModule,
     CoverageZonesModule,
     EditorsModule,
+    // El seed necesita User y Restaurant repositories que ya están en
+    // sus respectivos módulos exportados. TypeOrmModule.forFeature aquí
+    // los expone al provider del seed.
+    TypeOrmModule.forFeature([User, Restaurant]),
   ],
+  providers: [DemoSeedService],
 })
 export class AppModule {}
